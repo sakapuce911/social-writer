@@ -2,10 +2,8 @@ export type Objective = "vendre" | "attirer" | "éduquer" | "recruter" | "inspir
 export type Network = "linkedin" | "facebook" | "instagram" | "tiktok";
 
 /**
- * Règles basées sur TON guide (longueur, structure, hashtags, ton, SEO)
- * + structure A.I.D.A. appliquée partout.
- *
- * IMPORTANT: Ce prompt est conçu pour être encapsulé par l’API en "réponds en JSON".
+ * Prompt copywriting + SEO + AIDA
+ * IMPORTANT: Ce prompt est encapsulé par l’API qui force une réponse JSON.
  * => Donc ici, on ne met PAS de "CAPTION:" / "CTA:" / "HASHTAGS:" dans le texte.
  */
 export const captionPrompt = (args: {
@@ -46,62 +44,74 @@ export const captionPrompt = (args: {
 
   const pickCTA = (obj: Objective) => {
     const list = objectiveCTA[obj] ?? objectiveCTA.attirer;
-    // on garde une suggestion, mais le modèle doit adapter au réseau
     return list[0];
   };
 
   const rulesByNetwork: Record<Network, string> = {
     linkedin: `
-RÈGLES LINKEDIN (Ton guide):
-- Longueur recommandée: 1 000 à 2 000 caractères (format micro-article).
-- Accroche: les 3 premières lignes doivent être très percutantes (pour “Voir plus”).
-- Texte aéré: sauts de ligne fréquents, pas de gros blocs.
-- Style: professionnel mais humain. Utiliser “Je” plutôt que “Nous” corporate.
-- Mots-clés: intégrer naturellement des termes de l’industrie liés au sujet (SEO LinkedIn).
-- Hashtags: 3 à 5 maximum, à la fin du post.
+RÈGLES LINKEDIN:
+- Longueur: 1 000 à 2 000 caractères (micro-article).
+- Hook: les 3 premières lignes très percutantes (pour “Voir plus”).
+- Texte aéré: sauts de ligne fréquents.
+- Style: professionnel mais humain (utilise “Je”).
+- Hashtags: 3 à 5 maximum, à la fin.
 - Objectif: expertise + storytelling (exemple perso ou leçon).
 `.trim(),
 
     facebook: `
-RÈGLES FACEBOOK (Ton guide):
-- Longueur idéale: très court 40–80 caractères (sinon moyen mais émotionnel).
-- Ton: décontracté, conversationnel, proche.
-- Finir par une question pour déclencher les commentaires.
-- Éviter le langage corporate.
-- Hashtags: 0 à 2 max (souvent éviter).
-- Objectif: communauté + émotion + discussion.
+RÈGLES FACEBOOK:
+- Longueur idéale: très court 40–80 caractères (priorité).
+- Ton: décontracté, conversationnel.
+- Finir par une question (obligatoire).
+- Hashtags: 0 à 2 max (souvent 0).
 `.trim(),
 
     instagram: `
-RÈGLES INSTAGRAM (Ton guide):
-- Accroche: doit tenir dans les 125 premiers caractères.
-- Longueur: 250–400 caractères en moyenne (possible plus long si éducatif mais reste digeste).
-- Emojis: indispensables pour le ton et l’aération (sans excès).
-- Structure: Hook fort + valeur + CTA.
-- Mots-clés: importants pour le SEO IG, placer les mots clés dans la 1ère phrase.
-- Hashtags: viser ~10 pertinents (mix populaires + niche). Les mettre en bas.
-- CTA: “Lien en bio”, “Enregistre”, “Identifie un ami”, “DM”.
+RÈGLES INSTAGRAM:
+- Accroche: <125 caractères.
+- Longueur: 250–400 caractères (digeste).
+- Emojis: oui, pour aérer (sans excès).
+- Structure: Hook + valeur + CTA.
+- SEO IG: placer les mots-clés importants dans la 1ère phrase.
+- Hashtags: ~10 pertinents (mix populaires + niche) en bas.
 `.trim(),
 
     tiktok: `
-RÈGLES TIKTOK (Ton guide):
-- Longueur: très court ~150 caractères (concis).
+RÈGLES TIKTOK:
+- Longueur: ~150 caractères (concis).
 - Écrire comme un moteur de recherche: décrire littéralement ce que contient la vidéo.
-- Mots-clés SEO: CRUCIAL. Inclure la requête exacte (ex: “recette de pâtes facile”).
-- Hashtags: 3 à 6 (mix larges type #pourtoi + niche).
-- Objectif: vitesse + SEO + tendance. CTA: commenter / suivre / DM / lien bio.
+- SEO: inclure une requête exacte + variantes.
+- Hashtags: 3 à 6 (mix large + niche).
+- CTA: commenter / suivre / DM / lien bio.
 `.trim(),
   };
 
-  // Ajustements par réseau (hashtags + longueur stricte)
   const lengthAndTags: Record<Network, string> = {
-    linkedin: `Cible CAPTION: 1 000–2 000 caractères. Hashtags: 3–5.`,
-    facebook: `Cible CAPTION: 40–80 caractères (priorité). Hashtags: 0–2 (souvent 0). La CAPTION doit se terminer par une question.`,
-    instagram: `Cible CAPTION: 250–400 caractères. Accroche <125 caractères. Hashtags: ~10.`,
-    tiktok: `Cible CAPTION: ~150 caractères. Hashtags: 3–6. Inclure une phrase descriptive: ce que montre la vidéo.`,
+    linkedin: `CAPTION: 1 000–2 000 caractères. Hashtags: 3–5.`,
+    facebook: `CAPTION: 40–80 caractères (priorité). Hashtags: 0–2 (souvent 0). Finir par une question.`,
+    instagram: `CAPTION: 250–400 caractères. Accroche <125 caractères. Hashtags: ~10.`,
+    tiktok: `CAPTION: ~150 caractères. Hashtags: 3–6. Inclure une phrase descriptive sur le contenu.`,
   };
 
-  // Consignes universelles A.I.D.A
+  /**
+   * ✅ RÈGLES SEO (ce que tu demandes)
+   * - Mots-clés autour du sujet (synonymes + sémantique)
+   * - Chaque paragraphe doit “porter” le sujet (LinkedIn/IG)
+   * - Pas de bourrage: naturel, lisible
+   */
+  const seoRules = `
+RÈGLES SEO OBLIGATOIRES (IMPORTANT):
+- Identifie: 1 mot-clé principal (lié au sujet) + 5 à 10 mots-clés secondaires (synonymes / variantes / termes sémantiques / contexte métier).
+- Placement:
+  - LinkedIn / Instagram: chaque paragraphe (séparé par une ligne vide) doit contenir au moins:
+    • 1 mot-clé (principal OU secondaire)
+    • + 1 terme de contexte (métier/secteur/problématique/outil) lié au sujet
+  - Facebook / TikTok (texte court): inclure au minimum 1 mot-clé principal + 1 variante sémantique dans la seule phrase.
+- Longue traîne: ajoute 1 expression “long-tail” (5–8 mots) qui décrit l’intention de l’audience (ex: “pour les managers débordés”, “pour les freelances”, etc.) si la longueur le permet.
+- Naturel: aucune répétition forcée, pas de “keyword stuffing”. Priorité à la fluidité.
+- Ciblage audience: fais comprendre implicitement à qui ça s’adresse (rôle, niveau, secteur) sans lister des personas.
+`.trim();
+
   const universal = `
 STRUCTURE OBLIGATOIRE (A.I.D.A):
 - Attention: Hook (phrase choc ou question)
@@ -114,24 +124,23 @@ CONTRAINTES IMPORTANTES:
 - Sujet: """${subject}"""
 - Objectif: ${objective}
 - Réseau: ${network}
-- Intègre des mots-clés naturellement (sans bourrage).
 - Respecte STRICTEMENT les longueurs/hashtags du réseau.
 - Le CTA doit être 1 ligne, adapté au réseau + objectif.
 `.trim();
 
   const ctaSuggestion = pickCTA(objective);
 
-  // ⚠️ Ici on ne force PAS la sortie en "CAPTION/CTA/HASHTAGS"
-  // car l'API encapsule ensuite en "réponds en JSON".
   return `
-Tu es un copywriter expert.
+Tu es un copywriter expert + SEO.
 
 Ta mission:
-1) Écris une caption optimisée pour ${network} en respectant les règles ci-dessous.
+1) Écris une caption optimisée pour ${network}.
 2) Propose un CTA (1 seule ligne) adapté au réseau et à l’objectif.
-3) Propose des hashtags (respecte le nombre) en les rendant pertinents au sujet, dont quelques mots-clés de niche.
+3) Propose des hashtags (respecte le nombre) pertinents au sujet, avec une part de mots-clés de niche.
 
 ${universal}
+
+${seoRules}
 
 RÈGLES SPÉCIFIQUES:
 ${rulesByNetwork[network]}

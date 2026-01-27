@@ -10,14 +10,13 @@ type Lang = "fr" | "en";
 const NETWORKS: {
   key: Network;
   label: string;
-  badge: string;
   hint: string;
-  bg: string;
+  bg: string; // utilisé pour les petits effets
 }[] = [
-  { key: "linkedin", label: "LinkedIn", badge: "in", hint: "Pro • storytelling • crédibilité", bg: "rgba(10,102,194,0.18)" },
-  { key: "facebook", label: "Facebook", badge: "f", hint: "Communauté • simple • engageant", bg: "rgba(24,119,242,0.16)" },
-  { key: "instagram", label: "Instagram", badge: "IG", hint: "Visuel • hooks • hashtags", bg: "rgba(253,101,133,0.18)" },
-  { key: "tiktok", label: "TikTok", badge: "TT", hint: "Punchy • trends • CTA direct", bg: "rgba(23,23,23,0.10)" },
+  { key: "linkedin", label: "LinkedIn", hint: "Pro • storytelling • crédibilité", bg: "rgba(10,102,194,0.18)" },
+  { key: "facebook", label: "Facebook", hint: "Communauté • simple • engageant", bg: "rgba(24,119,242,0.16)" },
+  { key: "instagram", label: "Instagram", hint: "Visuel • hooks • hashtags", bg: "rgba(253,101,133,0.18)" },
+  { key: "tiktok", label: "TikTok", hint: "Punchy • trends • CTA direct", bg: "rgba(23,23,23,0.10)" },
 ];
 
 function normalizeFromLLM(raw: string): { caption: string; cta: string; hashtags: string } {
@@ -88,7 +87,6 @@ function normalizeFromLLM(raw: string): { caption: string; cta: string; hashtags
 function HeroCartoonSVG() {
   return (
     <svg viewBox="0 0 980 720" width="100%" height="100%" role="img" aria-label="Illustration SocialWriter">
-      {/* arrière-plan doux */}
       <defs>
         <linearGradient id="swBg" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="rgba(124,92,255,0.18)" />
@@ -112,12 +110,10 @@ function HeroCartoonSVG() {
 
       <rect x="0" y="0" width="980" height="720" rx="34" fill="url(#swBg)" />
 
-      {/* grand “card” */}
       <g filter="url(#hardShadow)">
         <rect x="90" y="80" width="800" height="540" rx="36" fill="url(#swCard)" stroke="rgba(17,17,17,0.20)" strokeWidth="6" />
       </g>
 
-      {/* mini topbar */}
       <g>
         <rect x="130" y="120" width="720" height="64" rx="22" fill="rgba(255,255,255,0.80)" stroke="rgba(17,17,17,0.14)" strokeWidth="4" />
         <circle cx="170" cy="152" r="10" fill="rgba(255,77,109,0.80)" />
@@ -132,14 +128,12 @@ function HeroCartoonSVG() {
         </g>
       </g>
 
-      {/* bulles / stickers */}
       <g filter="url(#softShadow)">
         <g transform="translate(150 220)">
           <rect x="0" y="0" width="260" height="150" rx="26" fill="rgba(255,255,255,0.92)" stroke="rgba(17,17,17,0.14)" strokeWidth="4" />
           <text x="22" y="44" fontSize="18" fontWeight="950" fill="rgba(17,17,17,0.86)">Hook</text>
           <text x="22" y="78" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">“3 erreurs qui ruinent</text>
           <text x="22" y="102" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">ta productivité…”</text>
-
           <circle cx="225" cy="44" r="18" fill="rgba(255,77,109,0.18)" stroke="rgba(17,17,17,0.12)" strokeWidth="3" />
           <text x="225" y="50" textAnchor="middle" fontSize="16" fontWeight="950" fill="rgba(17,17,17,0.8)">!</text>
         </g>
@@ -148,7 +142,6 @@ function HeroCartoonSVG() {
           <rect x="0" y="0" width="380" height="130" rx="26" fill="rgba(255,255,255,0.92)" stroke="rgba(17,17,17,0.14)" strokeWidth="4" />
           <text x="22" y="48" fontSize="18" fontWeight="950" fill="rgba(17,17,17,0.86)">CTA</text>
           <text x="22" y="82" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">Tu veux le template ? Écris “GO” 👇</text>
-
           <rect x="285" y="36" width="70" height="60" rx="18" fill="rgba(255,176,102,0.20)" stroke="rgba(17,17,17,0.12)" strokeWidth="3" />
           <text x="320" y="74" textAnchor="middle" fontSize="22" fontWeight="950">👇</text>
         </g>
@@ -164,35 +157,57 @@ function HeroCartoonSVG() {
           </g>
         </g>
       </g>
-
-      {/* petites icônes réseaux */}
-      <g filter="url(#softShadow)">
-        <g transform="translate(140 585)">
-          <rect x="0" y="0" width="88" height="88" rx="26" fill="rgba(10,102,194,0.18)" stroke="rgba(17,17,17,0.12)" strokeWidth="4" />
-          <text x="44" y="56" textAnchor="middle" fontSize="26" fontWeight="950">in</text>
-        </g>
-        <g transform="translate(250 585)">
-          <rect x="0" y="0" width="88" height="88" rx="26" fill="rgba(24,119,242,0.16)" stroke="rgba(17,17,17,0.12)" strokeWidth="4" />
-          <text x="44" y="56" textAnchor="middle" fontSize="26" fontWeight="950">f</text>
-        </g>
-        <g transform="translate(360 585)">
-          <rect x="0" y="0" width="88" height="88" rx="26" fill="rgba(253,101,133,0.18)" stroke="rgba(17,17,17,0.12)" strokeWidth="4" />
-          <text x="44" y="56" textAnchor="middle" fontSize="22" fontWeight="950">IG</text>
-        </g>
-        <g transform="translate(470 585)">
-          <rect x="0" y="0" width="88" height="88" rx="26" fill="rgba(23,23,23,0.10)" stroke="rgba(17,17,17,0.12)" strokeWidth="4" />
-          <text x="44" y="56" textAnchor="middle" fontSize="22" fontWeight="950">TT</text>
-        </g>
-
-        <g transform="translate(610 600)">
-          <rect x="0" y="0" width="250" height="66" rx="999" fill="rgba(255,255,255,0.88)" stroke="rgba(17,17,17,0.14)" strokeWidth="4" />
-          <text x="125" y="42" textAnchor="middle" fontSize="18" fontWeight="950" fill="rgba(17,17,17,0.82)">
-            “Prêt à poster” 🚀
-          </text>
-        </g>
-      </g>
     </svg>
   );
+}
+
+/** Logos inline (pas besoin d’images) */
+function SocialLogo({ net }: { net: Network }) {
+  const common = { width: 44, height: 44, viewBox: "0 0 64 64" };
+
+  if (net === "linkedin") {
+    return (
+      <svg {...common} aria-hidden="true">
+        <path fill="#FFFFFF" d="M14 26h8v24h-8V26zm4-12c2.6 0 4.7 2.1 4.7 4.7S20.6 23.4 18 23.4s-4.7-2.1-4.7-4.7S15.4 14 18 14z"/>
+        <path fill="#FFFFFF" d="M26 26h8v3.3c1.1-2 3.6-4 7.7-4 8.2 0 9.8 5.4 9.8 12.4V50h-8V38.9c0-2.7-.1-6.2-3.8-6.2-3.8 0-4.4 3-4.4 6V50h-8V26z"/>
+      </svg>
+    );
+  }
+
+  if (net === "facebook") {
+    return (
+      <svg {...common} aria-hidden="true">
+        <path fill="#FFFFFF" d="M38 22h6v-8h-6c-6.1 0-10 3.9-10 10v4h-6v8h6v20h8V36h7l1-8h-8v-3c0-1.8 1.2-3 3-3z"/>
+      </svg>
+    );
+  }
+
+  if (net === "instagram") {
+    return (
+      <svg {...common} aria-hidden="true">
+        <path fill="#FFFFFF" d="M40.5 14h-17C18.3 14 14 18.3 14 23.5v17C14 45.7 18.3 50 23.5 50h17C45.7 50 50 45.7 50 40.5v-17C50 18.3 45.7 14 40.5 14zM32 41.5c-5.2 0-9.5-4.3-9.5-9.5s4.3-9.5 9.5-9.5 9.5 4.3 9.5 9.5-4.3 9.5-9.5 9.5z"/>
+        <circle fill="#FFFFFF" cx="42.5" cy="21.5" r="2.5"/>
+        <circle fill="#FFFFFF" cx="32" cy="32" r="6"/>
+      </svg>
+    );
+  }
+
+  // tiktok
+  return (
+    <svg {...common} aria-hidden="true">
+      <path
+        fill="#FFFFFF"
+        d="M44 18c-2.1-1.7-3.4-3.9-3.8-6h-6v24.5c0 2.7-2.2 5-5 5s-5-2.2-5-5 2.2-5 5-5c.7 0 1.4.1 2 .4v-6.4c-.7-.1-1.3-.2-2-.2-6.1 0-11 4.9-11 11s4.9 11 11 11 11-4.9 11-11V26.7c2.7 1.9 5.9 3 9 3v-6c-2 0-4-.7-5.2-1.7z"
+      />
+    </svg>
+  );
+}
+
+function bannerVars(net: Network) {
+  if (net === "linkedin") return { bg: "#0A66C2" };
+  if (net === "facebook") return { bg: "#1877F2" };
+  if (net === "instagram") return { bg: "linear-gradient(135deg,#F58529,#DD2A7B,#8134AF,#515BD4)" };
+  return { bg: "#111111" };
 }
 
 export default function Page() {
@@ -210,7 +225,6 @@ export default function Page() {
   const toastTimer = useRef<number | null>(null);
   const [popKey, setPopKey] = useState<Network | null>(null);
 
-  // ✅ évite tout souci d’hydration si tu ajoutes ensuite des trucs fun (confetti etc.)
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -303,7 +317,6 @@ export default function Page() {
 
   const selectedNetworkLabel = NETWORKS.find((n) => n.key === network)?.label ?? "Réseau";
 
-  // ✅ évite le flash SSR/CSR si tu as du dynamique ensuite
   if (!mounted) return null;
 
   return (
@@ -312,7 +325,14 @@ export default function Page() {
       <header className="nav">
         <div className="nav__inner">
           <div className="brand">
-            <Image src="/logo-socialwriter.svg" alt="SocialWriter" width={150} height={38} className="brand__logo" priority />
+            <Image
+              src="/logo-socialwriter.svg"
+              alt="SocialWriter"
+              width={150}
+              height={38}
+              className="brand__logo"
+              priority
+            />
           </div>
 
           <nav className="nav__links" aria-label="Navigation">
@@ -379,7 +399,6 @@ export default function Page() {
               </div>
             </div>
 
-            {/* ✅ Maintenant ce n’est PLUS vide : SVG inline */}
             <div className="heroArt" aria-hidden="true">
               <div className="heroSticker"><i /> Fun mode ON</div>
               <div className="heroArt__svg">
@@ -454,18 +473,7 @@ export default function Page() {
                       const selected = n.key === network;
                       const pop = popKey === n.key;
 
-                      // ✅ un fond spécifique par réseau (plus fun)
-                      const netBg =
-                        n.key === "linkedin"
-                          ? "rgba(10,102,194,0.20)"
-                          : n.key === "facebook"
-                          ? "rgba(24,119,242,0.18)"
-                          : n.key === "instagram"
-                          ? "rgba(253,101,133,0.20)"
-                          : "rgba(23,23,23,0.10)";
-
-                      const emoji =
-                        n.key === "linkedin" ? "🧠" : n.key === "facebook" ? "💬" : n.key === "instagram" ? "✨" : "🔥";
+                      const vars = bannerVars(n.key);
 
                       return (
                         <button
@@ -474,26 +482,27 @@ export default function Page() {
                           role="radio"
                           aria-checked={selected}
                           onClick={() => onPickNetwork(n.key)}
-                          style={{ ["--netBg" as any]: netBg }}
-                          className={["networkCard", selected ? "networkCard--selected" : "", pop ? "networkCard--pop" : ""].join(" ").trim()}
+                          style={{
+                            ["--netGlow" as any]: n.bg,
+                            ["--bannerBg" as any]: vars.bg,
+                          }}
+                          className={["networkCard2", selected ? "networkCard2--selected" : "", pop ? "networkCard2--pop" : ""].join(" ").trim()}
                         >
-                          <div className="netBlob" aria-hidden="true" />
-                          <div className="netShine" aria-hidden="true" />
-
-                          <div className="networkCard__top">
-                            <div className="networkCard__badge" aria-hidden="true" style={{ background: n.bg }}>
-                              {n.badge}
+                          {/* Banner carré */}
+                          <div className="netBanner" aria-hidden="true">
+                            <div className="netBanner__inner">
+                              <div className="netLogo">
+                                <SocialLogo net={n.key} />
+                              </div>
                             </div>
-                            {selected && <span className="checkPill">✓ choisi</span>}
                           </div>
 
-                          <div className="netMeta">
-                            <div className="networkCard__name">{n.label}</div>
-                            <div className="networkCard__hint">{n.hint}</div>
-                          </div>
-
-                          <div className="netSticker" aria-hidden="true">
-                            <span className="netEmoji">{emoji}</span>
+                          <div className="netInfo">
+                            <div className="netTitleRow">
+                              <div className="netName">{n.label}</div>
+                              {selected && <span className="checkPill">✓ choisi</span>}
+                            </div>
+                            <div className="netHint">{n.hint}</div>
                           </div>
                         </button>
                       );
@@ -563,9 +572,6 @@ export default function Page() {
                       </div>
                       <pre className="pre">{[result.caption, result.cta, result.hashtags].filter(Boolean).join("\n\n")}</pre>
                     </div>
-
-                    {/* ⚠️ tu m’as dit que tu veux enlever ces 3 blocs :
-                        Je les enlève ici (tu gardes seulement “Résultat” au-dessus) */}
                   </div>
                 )}
               </div>
