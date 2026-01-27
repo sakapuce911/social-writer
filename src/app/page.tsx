@@ -669,14 +669,12 @@ export default function Page() {
                           <div style={{ marginTop: 12 }}>
                             <div style={{ fontWeight: 950, marginBottom: 8 }}>Suggestions</div>
                             <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
-                              {seo.suggestions.map((s, i) => (
-                                <li key={i}>{s}</li>
-                              ))}
-                            </ul>
-                                                    </ul>
-                        </div>
-                        )}
-
+                                {seo.suggestions.map((s, i) => (
+                                  <li key={i}>{s}</li>
+                                ))}
+                              </ul>
+                              </div>
+                              )}
                         <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
                           <button
                             className="btn btn--primary"
