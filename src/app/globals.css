@@ -680,3 +680,51 @@ textarea{ resize: vertical; }
   .netLogo{ width: 56px; height: 56px; }
   .netLogo svg{ width: 42px; height: 42px; }
 }
+/* ================================
+   MOBILE FIX — éviter double bouton + recouvrement
+================================ */
+
+/* 1) La page doit garder de la place pour la barre sticky en bas */
+@media (max-width: 760px){
+  .page{
+    padding-bottom: 110px; /* réserve l'espace de la MobileBar */
+  }
+}
+
+/* 2) Sur mobile, on cache le bouton "Générer" du formulaire (celui du panel) */
+@media (max-width: 760px){
+  .panel__left > .btn.btn--primary{
+    display: none !important;
+  }
+}
+
+/* 3) MobileBar: la rendre plus "app-like" et éviter qu'elle paraisse énorme */
+@media (max-width: 760px){
+  .mobileBar{
+    position: fixed !important;  /* mieux que sticky sur mobile */
+    left: 0;
+    right: 0;
+    bottom: 10px;
+    padding: 0 14px;
+    z-index: 9999;
+  }
+}
+
+/* 4) Réseaux: icônes un peu plus petites pour mobile */
+@media (max-width: 520px){
+  .networkGrid{
+    gap: 10px;
+  }
+  .netBanner{
+    width: 82px;        /* était 92px */
+    border-radius: 22px;
+  }
+  .netLogo{
+    width: 52px;
+    height: 52px;
+  }
+  .netLogo svg{
+    width: 38px;
+    height: 38px;
+  }
+}
