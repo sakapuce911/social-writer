@@ -1,30 +1,44 @@
 // src/app/api/login/route.ts
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import crypto from "crypto";
 
-export async function POST(req: Request) {
+const USERNAME = process.env.ADMIN_USERNAME || "admin";
+const PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const SESSION_SECRET = process.env.SESSION_SECRET || "dev-secret";
+
+function sign(value: string) {
+  return crypto
+    .createHmac("sha256", SESSION_SECRET)
+    .update(value)
+    .digest("hex");
+}
+
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const username = String(body?.username ?? "");
-    const password = String(body?.password ?? "");
+    const { username, password } = body || {};
 
-    const u = process.env.SW_LOGIN_USER ?? "";
-    const p = process.env.SW_LOGIN_PASS ?? "";
-
-    if (!u || !p) {
+    if (!username || !password) {
       return NextResponse.json(
-        { error: "Configuration manquante: SW_LOGIN_USER / SW_LOGIN_PASS" },
-        { status: 500 }
+        { error: "Champs manquants." },
+        { status: 400 }
       );
     }
 
-    if (username !== u || password !== p) {
-      return NextResponse.json({ error: "Identifiants invalides" }, { status: 401 });
+    if (username !== USERNAME || password !== PASSWORD) {
+      return NextResponse.json(
+        { error: "Identifiants incorrects." },
+        { status: 401 }
+      );
     }
+
+    // session simple signée
+    const token = `${username}.${sign(username)}`;
 
     const res = NextResponse.json({ ok: true });
 
-    // Cookie httpOnly (sécurisé)
-    res.cookies.set("sw_auth", "1", {
+    res.cookies.set("sw_session", token, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
@@ -34,6 +48,9 @@ export async function POST(req: Request) {
 
     return res;
   } catch {
-    return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Erreur serveur." },
+      { status: 500 }
+    );
   }
 }
