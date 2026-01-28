@@ -4,22 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { seoAudit, applySeoRewrite, type SeoAudit } from "@/lib/seoAudit";
-
-type Objective = "vendre" | "attirer" | "éduquer" | "recruter" | "inspirer";
-type Network = "linkedin" | "facebook" | "instagram" | "tiktok";
-type Lang = "fr" | "en";
-
-const NETWORKS: {
-  key: Network;
-  label: string;
-  hint: string;
-  bg: string; // utilisé pour les petits effets
-}[] = [
-  { key: "linkedin", label: "LinkedIn", hint: "Pro • storytelling • crédibilité", bg: "rgba(10,102,194,0.18)" },
-  { key: "facebook", label: "Facebook", hint: "Communauté • simple • engageant", bg: "rgba(24,119,242,0.16)" },
-  { key: "instagram", label: "Instagram", hint: "Visuel • hooks • hashtags", bg: "rgba(253,101,133,0.18)" },
-  { key: "tiktok", label: "TikTok", hint: "Punchy • trends • CTA direct", bg: "rgba(23,23,23,0.10)" },
-];
+import { generateLocalPost, type Lang, type Network, type Objective } from "@/lib/localGenerator";
 
 function normalizeFromLLM(raw: string): { caption: string; cta: string; hashtags: string } {
   const trimmed = (raw ?? "").trim();
@@ -183,58 +168,6 @@ function HeroCartoonSVG() {
   );
 }
 
-/** Logos inline (pas besoin d’images) */
-function SocialLogo({ net }: { net: Network }) {
-  const common = { width: 44, height: 44, viewBox: "0 0 64 64" };
-
-  if (net === "linkedin") {
-    return (
-      <svg {...common} aria-hidden="true">
-        <path fill="#FFFFFF" d="M14 26h8v24h-8V26zm4-12c2.6 0 4.7 2.1 4.7 4.7S20.6 23.4 18 23.4s-4.7-2.1-4.7-4.7S15.4 14 18 14z" />
-        <path fill="#FFFFFF" d="M26 26h8v3.3c1.1-2 3.6-4 7.7-4 8.2 0 9.8 5.4 9.8 12.4V50h-8V38.9c0-2.7-.1-6.2-3.8-6.2-3.8 0-4.4 3-4.4 6V50h-8V26z" />
-      </svg>
-    );
-  }
-
-  if (net === "facebook") {
-    return (
-      <svg {...common} aria-hidden="true">
-        <path fill="#FFFFFF" d="M38 22h6v-8h-6c-6.1 0-10 3.9-10 10v4h-6v8h6v20h8V36h7l1-8h-8v-3c0-1.8 1.2-3 3-3z" />
-      </svg>
-    );
-  }
-
-  if (net === "instagram") {
-    return (
-      <svg {...common} aria-hidden="true">
-        <path
-          fill="#FFFFFF"
-          d="M40.5 14h-17C18.3 14 14 18.3 14 23.5v17C14 45.7 18.3 50 23.5 50h17C45.7 50 50 45.7 50 40.5v-17C50 18.3 45.7 14 40.5 14zM32 41.5c-5.2 0-9.5-4.3-9.5-9.5s4.3-9.5 9.5-9.5 9.5 4.3 9.5 9.5-4.3 9.5-9.5 9.5z"
-        />
-        <circle fill="#FFFFFF" cx="42.5" cy="21.5" r="2.5" />
-        <circle fill="#FFFFFF" cx="32" cy="32" r="6" />
-      </svg>
-    );
-  }
-
-  // tiktok
-  return (
-    <svg {...common} aria-hidden="true">
-      <path
-        fill="#FFFFFF"
-        d="M44 18c-2.1-1.7-3.4-3.9-3.8-6h-6v24.5c0 2.7-2.2 5-5 5s-5-2.2-5-5 2.2-5 5-5c.7 0 1.4.1 2 .4v-6.4c-.7-.1-1.3-.2-2-.2-6.1 0-11 4.9-11 11s4.9 11 11 11 11-4.9 11-11V26.7c2.7 1.9 5.9 3 9 3v-6c-2 0-4-.7-5.2-1.7z"
-      />
-    </svg>
-  );
-}
-
-function bannerVars(net: Network) {
-  if (net === "linkedin") return { bg: "#0A66C2" };
-  if (net === "facebook") return { bg: "#1877F2" };
-  if (net === "instagram") return { bg: "linear-gradient(135deg,#F58529,#DD2A7B,#8134AF,#515BD4)" };
-  return { bg: "#111111" };
-}
-
 function scoreBadge(score: number) {
   if (score >= 85) return { label: "Excellent", bg: "rgba(143,227,214,0.22)", bd: "rgba(143,227,214,0.35)" };
   if (score >= 70) return { label: "Bon", bg: "rgba(255,216,106,0.22)", bd: "rgba(255,216,106,0.35)" };
@@ -246,8 +179,11 @@ export default function Page() {
   const [subject, setSubject] = useState("");
   const [language, setLanguage] = useState<Lang>("fr");
   const [objective, setObjective] = useState<Objective>("attirer");
-  const [network, setNetwork] = useState<Network>("linkedin");
 
+  // ✅ LinkedIn only (plus de sélecteur)
+  const network: Network = "linkedin";
+
+  // ⚠️ "loading" = uniquement pour IA (Gemini)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ caption: string; cta: string; hashtags: string } | null>(null);
@@ -257,7 +193,17 @@ export default function Page() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
-  const [popKey, setPopKey] = useState<Network | null>(null);
+
+  // ✅ IA quota local (affichage transparent, jamais bloquant)
+  const QUOTA_DAILY = 20;
+  const quotaKey = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `sw_ai_enhance_${y}-${m}-${d}`;
+  }, []);
+  const [aiCount, setAiCount] = useState(0);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -270,6 +216,23 @@ export default function Page() {
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  useEffect(() => {
+    try {
+      const v = Number(localStorage.getItem(quotaKey) ?? "0");
+      setAiCount(Number.isFinite(v) ? v : 0);
+    } catch {
+      setAiCount(0);
+    }
+  }, [quotaKey]);
+
+  function incAiCount() {
+    try {
+      const next = aiCount + 1;
+      setAiCount(next);
+      localStorage.setItem(quotaKey, String(next));
+    } catch {}
+  }
 
   function showToast(msg: string) {
     setToast(msg);
@@ -301,21 +264,69 @@ export default function Page() {
     }
   }
 
-  async function generate() {
+  // ✅ Génération LOCAL (sans API) — utilise src/lib/localGenerator.ts (Caméléon)
+  function generateLocal() {
     setError(null);
-    setResult(null);
     setSeo(null);
+
+    const parsed = generateLocalPost({
+      subject,
+      language,
+      objective,
+      network, // linkedin
+    });
+
+    setResult(parsed);
+
+    const audit = seoAudit({
+      subject,
+      caption: parsed.caption,
+      network, // linkedin
+      language,
+    });
+    setSeo(audit);
+
+    setTimeout(() => {
+      const el = document.getElementById("resultBlock");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+
+    showToast("Généré en local ✅");
+  }
+
+  // ✅ Améliorer avec IA (Gemini via /api/generate)
+  async function improveWithAI() {
+    setError(null);
+    setSeo(null);
+
+    // garde-fou UX : si quota atteint, on ne bloque pas, on informe
+    if (aiCount >= QUOTA_DAILY) {
+      showToast("Quota IA atteint — mode local illimité ✅");
+      setError("Quota IA atteint (20/jour). Utilise “Générer (local)” et réessaie demain.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, language, objective, network }),
+        body: JSON.stringify({ subject, language, objective, network }), // linkedin
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Erreur génération");
+
+      if (!res.ok) {
+        const msg = String(data?.error || "Erreur génération");
+        // si quota/429, on n'incrémente pas et on reste clean
+        if (res.status === 429 || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("resource_exhausted")) {
+          setError("Quota IA atteint (Gemini). Utilise “Générer (local)” ou réessaie demain.");
+          showToast("Quota IA atteint — local illimité ✅");
+          return;
+        }
+        throw new Error(msg);
+      }
 
       const raw = String(data.output ?? "").trim();
       const parsed = normalizeFromLLM(raw);
@@ -327,11 +338,10 @@ export default function Page() {
 
       setResult(parsed);
 
-      // ✅ SEO audit (caption seule)
       const audit = seoAudit({
         subject,
         caption: parsed.caption,
-        network,
+        network, // linkedin
         language,
       });
       setSeo(audit);
@@ -340,14 +350,18 @@ export default function Page() {
         const el = document.getElementById("resultBlock");
         el?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 50);
-    } catch (e: any) {
-      setError(e?.message ?? "Erreur inconnue");
+
+      incAiCount();
+      showToast("Amélioré avec IA ✨");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "Une erreur est survenue. Mode local toujours disponible ✅");
     } finally {
       setLoading(false);
     }
   }
 
-  // ✅ NOUVEAU: Optimiser SEO (réécrit la caption selon suggestions)
+  // ✅ Optimiser SEO (réécrit la caption selon suggestions) — reste en local
   function optimizeSeo() {
     if (!result) return;
 
@@ -363,7 +377,7 @@ export default function Page() {
     const audit = seoAudit({
       subject,
       caption: rewritten,
-      network,
+      network, // linkedin
       language,
     });
     setSeo(audit);
@@ -377,57 +391,87 @@ export default function Page() {
     copy(parts.join("\n\n").trim());
   };
 
-  const onPickNetwork = (k: Network) => {
-    setNetwork(k);
-    setPopKey(k);
-    window.setTimeout(() => setPopKey(null), 240);
-  };
-
-  const selectedNetworkLabel = NETWORKS.find((n) => n.key === network)?.label ?? "Réseau";
-
   if (!mounted) return null;
 
   const badge = seo ? scoreBadge(seo.score) : null;
+  const remaining = Math.max(0, QUOTA_DAILY - aiCount);
 
   return (
     <div className="page">
       {/* NAV */}
       <header className="nav">
-        <div className="nav__inner">
-          <div className="brand">
-            <Image src="/logo-socialwriter.svg" alt="SocialWriter" width={150} height={38} className="brand__logo" priority />
-          </div>
+  <div className="nav__inner">
+    <div className="brand">
+      <Image
+        src="/logo-socialwriter.svg"
+        alt="SocialWriter"
+        width={150}
+        height={38}
+        className="brand__logo"
+        priority
+      />
+    </div>
 
-          <nav className="nav__links" aria-label="Navigation">
-            <a href="#features">Fonctions</a>
-            <a href="#generator">Générateur</a>
-            <a href="#faq">FAQ</a>
-          </nav>
+    <nav className="nav__links" aria-label="Navigation">
+      <a href="#features">Fonctions</a>
+      <a href="#generator">Générateur</a>
+      <a href="#faq">FAQ</a>
+    </nav>
 
-          <div className="nav__cta">
-            <button className="burger" type="button" onClick={() => setMenuOpen((v) => !v)} aria-label="Ouvrir le menu" aria-expanded={menuOpen}>
-              <span className="burger__icon" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </span>
-            </button>
+    <div className="nav__cta">
+      <button
+        className="burger"
+        type="button"
+        onClick={() => setMenuOpen((v) => !v)}
+        aria-label="Ouvrir le menu"
+        aria-expanded={menuOpen}
+      >
+        <span className="burger__icon" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      </button>
 
-            <a className="btn" href="#generator">
-              Commencer
-            </a>
-          </div>
-        </div>
+      <button
+        className="btn"
+        type="button"
+        onClick={async () => {
+          try {
+            await fetch("/api/logout", { method: "POST" });
+          } finally {
+            window.location.href = "/login";
+          }
+        }}
+        title="Se déconnecter"
+      >
+        Déconnexion
+      </button>
 
-        <div className="nav__mobile" style={{ display: menuOpen ? "block" : undefined }}>
-          <div className="nav__mobileInner">
-            <a href="#features" onClick={() => setMenuOpen(false)}>Fonctions</a>
-            <a href="#generator" onClick={() => setMenuOpen(false)}>Générateur</a>
-            <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
-            <a href="#generator" onClick={() => setMenuOpen(false)}>Commencer</a>
-          </div>
-        </div>
-      </header>
+      <a className="btn" href="#generator">
+        Commencer
+      </a>
+    </div>
+  </div>
+
+  <div className="nav__mobile" style={{ display: menuOpen ? "block" : undefined }}>
+    <div className="nav__mobileInner">
+      <a href="#features" onClick={() => setMenuOpen(false)}>
+        Fonctions
+      </a>
+      <a href="#generator" onClick={() => setMenuOpen(false)}>
+        Générateur
+      </a>
+      <a href="#faq" onClick={() => setMenuOpen(false)}>
+        FAQ
+      </a>
+      <a href="#generator" onClick={() => setMenuOpen(false)}>
+        Commencer
+      </a>
+    </div>
+  </div>
+</header>
+
 
       {/* HERO */}
       <section className="hero">
@@ -437,7 +481,7 @@ export default function Page() {
               <div className="pill">
                 <span className="pill__spark" />
                 <span>
-                  <b>Texte prêt à poster</b> (séparé en 3 blocs)
+                  <b>LinkedIn uniquement</b> • Texte prêt à poster (3 blocs)
                 </span>
               </div>
 
@@ -446,18 +490,26 @@ export default function Page() {
               </h1>
 
               <p className="lead">
-                Tu donnes le sujet, la langue et l’objectif. On te sort un post prêt à publier : <b>Texte</b> + <b>CTA</b> + <b>Hashtags</b>.
+                Tu donnes le sujet, la langue et l’objectif. On te sort un post LinkedIn prêt à publier : <b>Texte</b> + <b>CTA</b> + <b>Hashtags</b>.
               </p>
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <a className="btn btn--primary" href="#generator">Générer maintenant</a>
-                <a className="btn" href="#features">Voir les fonctions</a>
+                <a className="btn btn--primary" href="#generator">
+                  Générer maintenant
+                </a>
+                <a className="btn" href="#features">
+                  Voir les fonctions
+                </a>
               </div>
             </div>
 
             <div className="heroArt" aria-hidden="true">
-              <div className="heroSticker"><i /> Fun mode ON</div>
-              <div className="heroArt__svg"><HeroCartoonSVG /></div>
+              <div className="heroSticker">
+                <i /> Fun mode ON
+              </div>
+              <div className="heroArt__svg">
+                <HeroCartoonSVG />
+              </div>
             </div>
           </div>
         </div>
@@ -468,13 +520,13 @@ export default function Page() {
         <div className="container">
           <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
             <div style={{ fontWeight: 950, fontSize: 22 }}>Fonctions</div>
-            <div style={{ color: "var(--muted)" }}>Format adapté automatiquement + choix du réseau + copie ultra simple.</div>
+            <div style={{ color: "var(--muted)" }}>Optimisé pour LinkedIn : structure, ton, lisibilité et “copier-coller”.</div>
           </div>
 
           <div className="featuresGrid">
             <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Règles par plateforme</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>LinkedIn / Facebook / Instagram / TikTok : structure et ton adaptés.</div>
+              <div style={{ fontWeight: 950 }}>Règles LinkedIn</div>
+              <div style={{ color: "var(--muted)", marginTop: 6 }}>Structure claire, storytelling pro, CTA, hashtags propres.</div>
             </div>
 
             <div className="panel" style={{ padding: 16 }}>
@@ -483,7 +535,7 @@ export default function Page() {
             </div>
 
             <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Copie flexible</div>
+              <div style={{ fontWeight: 950 }}>Copie ultra simple</div>
               <div style={{ color: "var(--muted)", marginTop: 6 }}>Copier tout ou juste une section (Texte / CTA / Hashtags).</div>
             </div>
           </div>
@@ -494,7 +546,7 @@ export default function Page() {
       <section id="generator" className="section section--tight">
         <div className="container">
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontWeight: 950, fontSize: 26 }}>Générateur</div>
+            <div style={{ fontWeight: 950, fontSize: 26 }}>Générateur LinkedIn</div>
             <div style={{ color: "var(--muted)", marginTop: 6 }}>Remplis. Clique. Copie. Poste.</div>
           </div>
 
@@ -516,50 +568,25 @@ export default function Page() {
                   />
                 </div>
 
+                {/* ✅ LinkedIn only pill */}
                 <div className="field">
-                  <div className="field__label" style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span>Réseau</span>
-                    <span className="checkPill">Sélection : {selectedNetworkLabel}</span>
-                  </div>
-
-                  <div className="networkGrid" role="radiogroup" aria-label="Choix du réseau">
-                    {NETWORKS.map((n) => {
-                      const selected = n.key === network;
-                      const pop = popKey === n.key;
-
-                      const vars = bannerVars(n.key);
-
-                      return (
-                        <button
-                          key={n.key}
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          onClick={() => onPickNetwork(n.key)}
-                          style={{
-                            ["--netGlow" as any]: n.bg,
-                            ["--bannerBg" as any]: vars.bg,
-                          }}
-                          className={["networkCard2", selected ? "networkCard2--selected" : "", pop ? "networkCard2--pop" : ""].join(" ").trim()}
-                        >
-                          <div className="netBanner" aria-hidden="true">
-                            <div className="netBanner__inner">
-                              <div className="netLogo">
-                                <SocialLogo net={n.key} />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="netInfo">
-                            <div className="netTitleRow">
-                              <div className="netName">{n.label}</div>
-                              {selected && <span className="checkPill">✓ choisi</span>}
-                            </div>
-                            <div className="netHint">{n.hint}</div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                  <div className="field__label">Réseau</div>
+                  <div
+                    className="panel"
+                    style={{
+                      padding: 14,
+                      borderRadius: 16,
+                      border: "3px solid rgba(10,102,194,0.22)",
+                      background: "rgba(10,102,194,0.08)",
+                      fontWeight: 950,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                    }}
+                  >
+                    <span>LinkedIn</span>
+                    <span className="checkPill">✓ fixe</span>
                   </div>
                 </div>
 
@@ -584,22 +611,36 @@ export default function Page() {
                   </div>
                 </div>
 
-                <button
-                  className={["btn", "btn--primary", loading ? "btn--loading" : ""].join(" ").trim()}
-                  onClick={generate}
-                  disabled={!canGenerate || loading}
-                  style={{ width: "100%" }}
-                >
-                  {loading ? (
-                    <span className="loaderCartoon" aria-label="Chargement">
-                      <span />
-                      <span />
-                      <span />
-                    </span>
-                  ) : (
-                    "Générer"
-                  )}
-                </button>
+                {/* ✅ 2 boutons (Local + IA) + compteur quota visible */}
+                <div style={{ display: "grid", gap: 10 }}>
+                  <button className="btn btn--primary" onClick={generateLocal} disabled={!canGenerate} style={{ width: "100%" }}>
+                    Générer (local)
+                  </button>
+
+                  <button
+                    className={["btn", loading ? "btn--loading" : ""].join(" ").trim()}
+                    onClick={improveWithAI}
+                    disabled={!canGenerate || loading || aiCount >= QUOTA_DAILY}
+                    style={{ width: "100%" }}
+                    title="Utilise le quota gratuit Gemini (20/jour)"
+                  >
+                    {loading ? (
+                      <span className="loaderCartoon" aria-label="Chargement">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    ) : (
+                      `Améliorer avec IA (${remaining}/${QUOTA_DAILY})`
+                    )}
+                  </button>
+
+                  {/* petit texte quota (transparent, rassurant) */}
+                  <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 800 }}>
+                    <span style={{ marginRight: 8 }}>🟢 Local illimité</span>
+                    <span>✨ IA restante aujourd’hui : {remaining}/{QUOTA_DAILY}</span>
+                  </div>
+                </div>
 
                 {error && (
                   <div className="alert">
@@ -614,7 +655,7 @@ export default function Page() {
                   <div className="empty">
                     <div className="empty__icon">📝</div>
                     <div className="empty__title">Tes résultats apparaîtront ici</div>
-                    <div className="empty__sub">Génère pour obtenir un texte prêt à poster (copie tout ou par section).</div>
+                    <div className="empty__sub">Génère pour obtenir un post LinkedIn prêt à poster (copie tout ou par section).</div>
                   </div>
                 ) : (
                   <div style={{ display: "grid", gap: 12 }}>
@@ -623,7 +664,9 @@ export default function Page() {
                       <div className="result__top">
                         <div style={{ fontWeight: 950 }}>Résultat</div>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                          <button className="btn" onClick={copyAll}>Copier tout</button>
+                          <button className="btn" onClick={copyAll}>
+                            Copier tout
+                          </button>
                         </div>
                       </div>
 
@@ -652,9 +695,15 @@ export default function Page() {
                         </div>
 
                         <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                          <div>✓ Mot-clé principal : <b>{seo.primaryKeyword}</b></div>
-                          <div>✓ Densité : <b>{seo.density}%</b></div>
-                          <div>✓ Mots-clés secondaires : <b>{seo.secondaryKeywords.join(", ") || "—"}</b></div>
+                          <div>
+                            ✓ Mot-clé principal : <b>{seo.primaryKeyword}</b>
+                          </div>
+                          <div>
+                            ✓ Densité : <b>{seo.density}%</b>
+                          </div>
+                          <div>
+                            ✓ Mots-clés secondaires : <b>{seo.secondaryKeywords.join(", ") || "—"}</b>
+                          </div>
 
                           {seo.paragraphsWithoutKeyword > 0 ? (
                             <div style={{ color: "var(--accent)" }}>⚠ {seo.paragraphsWithoutKeyword} paragraphe(s) sans mot-clé</div>
@@ -669,19 +718,15 @@ export default function Page() {
                           <div style={{ marginTop: 12 }}>
                             <div style={{ fontWeight: 950, marginBottom: 8 }}>Suggestions</div>
                             <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6 }}>
-                                {seo.suggestions.map((s, i) => (
-                                  <li key={i}>{s}</li>
-                                ))}
-                              </ul>
-                              </div>
-                              )}
+                              {seo.suggestions.map((s, i) => (
+                                <li key={i}>{s}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
                         <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                          <button
-                            className="btn btn--primary"
-                            type="button"
-                            onClick={optimizeSeo}
-                            disabled={loading}
-                          >
+                          <button className="btn btn--primary" type="button" onClick={optimizeSeo} disabled={loading}>
                             Optimiser SEO
                           </button>
 
@@ -712,11 +757,18 @@ export default function Page() {
                 backdropFilter: "blur(10px)",
               }}
             >
+              {/* ✅ Mobile: Local */}
+              <button className="btn btn--primary" onClick={generateLocal} disabled={!canGenerate} style={{ width: "100%" }}>
+                Local
+              </button>
+
+              {/* ✅ Mobile: IA */}
               <button
-                className={["btn", "btn--primary", loading ? "btn--loading" : ""].join(" ").trim()}
-                onClick={generate}
-                disabled={!canGenerate || loading}
+                className={["btn", loading ? "btn--loading" : ""].join(" ").trim()}
+                onClick={improveWithAI}
+                disabled={!canGenerate || loading || aiCount >= QUOTA_DAILY}
                 style={{ width: "100%" }}
+                title="Utilise le quota gratuit Gemini (20/jour)"
               >
                 {loading ? (
                   <span className="loaderCartoon" aria-label="Chargement">
@@ -725,12 +777,12 @@ export default function Page() {
                     <span />
                   </span>
                 ) : (
-                  "Générer"
+                  "IA"
                 )}
               </button>
 
               {result && (
-                <button className="btn" onClick={copyAll} style={{ width: "100%" }}>
+                <button className="btn" onClick={copyAll} style={{ width: "100%", gridColumn: "1 / -1" }}>
                   Copier tout
                 </button>
               )}
@@ -770,20 +822,29 @@ export default function Page() {
           <div style={{ display: "grid", gap: 10 }}>
             <div className="panel" style={{ padding: 16 }}>
               <div style={{ fontWeight: 950 }}>Pourquoi séparer Texte / CTA / Hashtags ?</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>
-                Pour copier exactement ce dont tu as besoin, sans polluer la publication avec des titres.
-              </div>
+              <div style={{ color: "var(--muted)", marginTop: 6 }}>Pour copier exactement ce dont tu as besoin, sans polluer la publication avec des titres.</div>
             </div>
 
             <div className="panel" style={{ padding: 16 }}>
               <div style={{ fontWeight: 950 }}>Le choix de langue change vraiment le contenu ?</div>
+              <div style={{ color: "var(--muted)", marginTop: 6 }}>Oui. Le résultat est généré directement en Français ou en Anglais selon ton choix.</div>
+            </div>
+
+            <div className="panel" style={{ padding: 16 }}>
+              <div style={{ fontWeight: 950 }}>L’app marche sans IA ?</div>
               <div style={{ color: "var(--muted)", marginTop: 6 }}>
-                Oui. Le modèle génère le résultat directement en Français ou en Anglais selon ton choix.
+                Oui. <b>Générer (local)</b> est illimité et fonctionne même si l’IA est en quota, lente ou indisponible.
               </div>
             </div>
           </div>
 
-          <div style={{ marginTop: 18, color: "var(--muted)", fontSize: 12 }}>
+          <div
+            style={{
+              marginTop: 18,
+              color: "var(--muted)",
+              fontSize: 12,
+            }}
+          >
             © <span suppressHydrationWarning>{new Date().getFullYear()}</span> SocialWriter — Fun. Rapide. Prêt à poster.
           </div>
         </div>
@@ -791,4 +852,3 @@ export default function Page() {
     </div>
   );
 }
-

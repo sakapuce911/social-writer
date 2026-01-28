@@ -16,12 +16,8 @@ export const metadata: Metadata = {
   title: "SocialWriter — Générateur de posts",
   description: "Génère des posts prêts à publier (CAPTION / CTA / HASHTAGS) pour LinkedIn, Facebook, Instagram et TikTok.",
   icons: {
-    icon: [
-      { url: "/favicon.ico" },
-    ],
-    apple: [
-      { url: "/apple-touch-icon.png" },
-    ],
+    icon: [{ url: "/favicon.ico" }],
+    apple: [{ url: "/apple-touch-icon.png" }],
   },
 };
 
@@ -31,8 +27,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="fr" suppressHydrationWarning>
+      <body
+        suppressHydrationWarning
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>
