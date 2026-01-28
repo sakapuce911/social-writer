@@ -499,16 +499,16 @@ export default function Page() {
               <div className="pill">
                 <span className="pill__spark" />
                 <span>
-                  <b>LinkedIn uniquement</b> • Texte prêt à poster (3 blocs)
+                  <b>LinkedIn uniquement</b> • Texte prêt à poster
                 </span>
               </div>
 
               <h1 className="h1">
-                Des posts <span className="accent">cartoon</span> mais efficaces 😄
+                Génère des posts LinkedIn <span className="accent">engageants</span> grâce à l’IA 😄
               </h1>
 
               <p className="lead">
-                Tu donnes le sujet, la langue et l’objectif. On te sort un post LinkedIn prêt à publier : <b>Texte</b> + <b>CTA</b> + <b>Hashtags</b>.
+                Fun, clairs et optimisés pour l’algorithme LinkedIn <b>Texte</b> + <b>CTA</b> + <b>Hashtags</b>.
               </p>
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -759,7 +759,7 @@ export default function Page() {
               </div>
             </div>
           </div>
-          
+
           {/* Toast */}
           {toast && (
             <div
