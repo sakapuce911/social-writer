@@ -455,21 +455,39 @@ export default function Page() {
   </div>
 
   <div className="nav__mobile" style={{ display: menuOpen ? "block" : undefined }}>
-    <div className="nav__mobileInner">
-      <a href="#features" onClick={() => setMenuOpen(false)}>
-        Fonctions
-      </a>
-      <a href="#generator" onClick={() => setMenuOpen(false)}>
-        Générateur
-      </a>
-      <a href="#faq" onClick={() => setMenuOpen(false)}>
-        FAQ
-      </a>
-      <a href="#generator" onClick={() => setMenuOpen(false)}>
-        Commencer
-      </a>
-    </div>
+  <div className="nav__mobileInner">
+    <a href="#features" onClick={() => setMenuOpen(false)}>
+      Fonctions
+    </a>
+    <a href="#generator" onClick={() => setMenuOpen(false)}>
+      Générateur
+    </a>
+    <a href="#faq" onClick={() => setMenuOpen(false)}>
+      FAQ
+    </a>
+
+    <a className="btn" href="#generator" onClick={() => setMenuOpen(false)}>
+      Commencer
+    </a>
+
+    <button
+      className="btn"
+      type="button"
+      onClick={async () => {
+        setMenuOpen(false);
+        try {
+          await fetch("/api/logout", { method: "POST" });
+        } finally {
+          window.location.href = "/login";
+        }
+      }}
+      title="Se déconnecter"
+      style={{ width: "100%" }}
+    >
+      Déconnexion
+    </button>
   </div>
+</div>
 </header>
 
 
