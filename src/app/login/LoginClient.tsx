@@ -15,7 +15,7 @@ export default function LoginClient() {
     return decodeURIComponent(v);
   }, [sp]);
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,8 @@ export default function LoginClient() {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        // ✅ on envoie username au lieu de email
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -40,7 +41,6 @@ export default function LoginClient() {
         return;
       }
 
-      // ✅ connecté -> retour sur home
       window.location.href = "/";
     } catch {
       setError("Erreur réseau. Réessaie.");
@@ -95,14 +95,14 @@ export default function LoginClient() {
 
         <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
           <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 900 }}>Email</span>
+            <span style={{ fontWeight: 900 }}>Pseudo</span>
             <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              autoComplete="email"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              type="text"
+              autoComplete="username"
               required
-              placeholder="ex: mirana@email.com"
+              placeholder="Ex: saka"
               style={{
                 width: "100%",
                 borderRadius: 14,
