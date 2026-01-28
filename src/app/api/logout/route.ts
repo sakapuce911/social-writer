@@ -1,13 +1,14 @@
 // src/app/api/logout/route.ts
 import { NextResponse } from "next/server";
 
+const COOKIE_NAME = "sw_session";
+
 export async function POST() {
   const res = NextResponse.json({ ok: true });
 
-  res.cookies.set("sw_auth", "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+  res.cookies.set({
+    name: COOKIE_NAME,
+    value: "",
     path: "/",
     maxAge: 0,
   });
