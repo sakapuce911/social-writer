@@ -1,49 +1,44 @@
-// src/app/login/LoginClient.tsx
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginClient() {
+  const router = useRouter();
   const sp = useSearchParams();
 
-  const initialError = useMemo(() => {
-    const v = sp.get("error");
-    if (!v) return "";
-    if (v === "auth") return "Identifiants incorrects.";
-    if (v === "session") return "Session expirée. Merci de te reconnecter.";
-    return decodeURIComponent(v);
-  }, [sp]);
+  const nextUrl = useMemo(() => sp.get("next") || "/", [sp]);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(initialError);
+  const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    setErr(null);
     setLoading(true);
 
     try {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // ✅ on envoie username au lieu de email
+        credentials: "same-origin",
         body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        setError(String(data?.error || "Connexion impossible."));
+      if (!res.ok || !data?.ok) {
+        setErr(String(data?.error || "Identifiants incorrects."));
         return;
       }
 
-      window.location.href = "/";
+      router.replace(nextUrl);
+      router.refresh();
     } catch {
-      setError("Erreur réseau. Réessaie.");
+      setErr("Erreur réseau. Réessaie.");
     } finally {
       setLoading(false);
     }
@@ -52,128 +47,102 @@ export default function LoginClient() {
   return (
     <div
       style={{
-        minHeight: "100dvh",
+        minHeight: "100vh",
         display: "grid",
         placeItems: "center",
-        padding: 18,
+        padding: 24,
         background:
-          "radial-gradient(900px 480px at 20% 10%, rgba(124,92,255,0.18), transparent 60%), radial-gradient(900px 480px at 90% 20%, rgba(255,77,109,0.14), transparent 55%), radial-gradient(900px 480px at 50% 90%, rgba(255,176,102,0.16), transparent 60%), rgba(246,241,234,1)",
+          "radial-gradient(circle at 20% 10%, rgba(124,92,255,0.18), transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,176,102,0.18), transparent 50%), radial-gradient(circle at 50% 80%, rgba(255,77,109,0.14), transparent 50%), #fff",
       }}
     >
-      <div
+      <form
+        onSubmit={onSubmit}
         style={{
-          width: "min(480px, 100%)",
-          borderRadius: 22,
+          width: "min(520px, 100%)",
+          background: "rgba(255,255,255,0.85)",
           border: "3px solid rgba(17,17,17,0.12)",
-          background: "rgba(255,255,255,0.92)",
+          borderRadius: 22,
+          padding: 22,
           boxShadow: "0 18px 0 rgba(17,17,17,0.08)",
-          padding: 18,
           backdropFilter: "blur(10px)",
         }}
       >
-        <div style={{ display: "grid", gap: 6, marginBottom: 14 }}>
-          <div style={{ fontWeight: 950, fontSize: 22 }}>Connexion</div>
-          <div style={{ color: "rgba(17,17,17,0.65)", fontWeight: 800 }}>
-            Accès réservé à SocialWriter
-          </div>
+        <div style={{ fontSize: 28, fontWeight: 950 }}>Connexion</div>
+        <div style={{ color: "rgba(17,17,17,0.55)", fontWeight: 800, marginBottom: 16 }}>
+          Accès réservé à SocialWriter
         </div>
 
-        {error && (
+        {err && (
           <div
             style={{
-              borderRadius: 14,
-              border: "3px solid rgba(255,77,109,0.25)",
-              background: "rgba(255,77,109,0.10)",
-              padding: 12,
-              fontWeight: 900,
               marginBottom: 12,
+              padding: "10px 12px",
+              borderRadius: 14,
+              border: "3px solid rgba(255,77,109,0.30)",
+              background: "rgba(255,77,109,0.12)",
+              fontWeight: 900,
             }}
           >
-            {error}
+            {err}
           </div>
         )}
 
-        <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 900 }}>Pseudo</span>
+        <label style={{ display: "grid", gap: 6, marginBottom: 12 }}>
+          <div style={{ fontWeight: 900 }}>Username</div>
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            placeholder="username"
+            style={{ padding: 12, borderRadius: 14, border: "2px solid rgba(17,17,17,0.18)" }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6, marginBottom: 14 }}>
+          <div style={{ fontWeight: 900 }}>Mot de passe</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
             <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              type="text"
-              autoComplete="username"
-              required
-              placeholder="Ex: saka"
-              style={{
-                width: "100%",
-                borderRadius: 14,
-                border: "3px solid rgba(17,17,17,0.12)",
-                padding: "12px 12px",
-                fontWeight: 850,
-                outline: "none",
-                background: "rgba(255,255,255,0.92)",
-              }}
+              type={show ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              style={{ padding: 12, borderRadius: 14, border: "2px solid rgba(17,17,17,0.18)" }}
             />
-          </label>
-
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 900 }}>Mot de passe</span>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-              <input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type={show ? "text" : "password"}
-                autoComplete="current-password"
-                required
-                placeholder="••••••••"
-                style={{
-                  width: "100%",
-                  borderRadius: 14,
-                  border: "3px solid rgba(17,17,17,0.12)",
-                  padding: "12px 12px",
-                  fontWeight: 850,
-                  outline: "none",
-                  background: "rgba(255,255,255,0.92)",
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShow((v) => !v)}
-                style={{
-                  borderRadius: 14,
-                  border: "3px solid rgba(17,17,17,0.12)",
-                  padding: "10px 12px",
-                  fontWeight: 950,
-                  background: "rgba(255,255,255,0.9)",
-                  cursor: "pointer",
-                }}
-                aria-label={show ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-              >
-                {show ? "🙈" : "👀"}
-              </button>
-            </div>
-          </label>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              marginTop: 6,
-              borderRadius: 16,
-              border: "3px solid rgba(17,17,17,0.12)",
-              padding: "12px 14px",
-              fontWeight: 950,
-              cursor: loading ? "not-allowed" : "pointer",
-              background: loading ? "rgba(17,17,17,0.06)" : "rgba(124,92,255,0.18)",
-            }}
-          >
-            {loading ? "Connexion…" : "Se connecter"}
-          </button>
-
-          <div style={{ marginTop: 4, fontSize: 12, color: "rgba(17,17,17,0.62)", fontWeight: 800 }}>
-            Astuce : si tu arrives ici après un logout, c’est normal.
+            <button
+              type="button"
+              onClick={() => setShow((v) => !v)}
+              style={{
+                width: 44,
+                borderRadius: 14,
+                border: "2px solid rgba(17,17,17,0.18)",
+                background: "rgba(255,255,255,0.9)",
+                fontWeight: 900,
+              }}
+            >
+              👀
+            </button>
           </div>
-        </form>
-      </div>
+        </label>
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: 12,
+            borderRadius: 14,
+            border: "2px solid rgba(124,92,255,0.35)",
+            background: "rgba(124,92,255,0.18)",
+            fontWeight: 950,
+          }}
+        >
+          {loading ? "Connexion…" : "Se connecter"}
+        </button>
+
+        <div style={{ marginTop: 12, fontSize: 12, color: "rgba(17,17,17,0.55)", fontWeight: 800 }}>
+          Astuce : si tu arrives ici après un logout, c’est normal.
+        </div>
+      </form>
     </div>
   );
 }
