@@ -4,8 +4,8 @@ import { NextResponse } from "next/server";
 const COOKIE_NAME = "sw_session";
 
 export async function POST(req: Request) {
-  const USERNAME = process.env.ADMIN_USERNAME || "admin";
-  const PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+  const USERNAME = process.env.ADMIN_USERNAME || "saka";
+  const PASSWORD = process.env.ADMIN_PASSWORD || "3004";
 
   const body = await req.json().catch(() => ({}));
   const username = String(body?.username ?? "").trim();
