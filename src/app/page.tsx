@@ -759,54 +759,7 @@ export default function Page() {
               </div>
             </div>
           </div>
-
-          {/* Sticky bar mobile */}
-          <div className="mobileBar" style={{ position: "sticky", bottom: 10, zIndex: 10, marginTop: 12 }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: result ? "1fr 1fr" : "1fr",
-                gap: 10,
-                padding: 10,
-                borderRadius: 18,
-                border: "3px solid rgba(17,17,17,0.12)",
-                background: "rgba(246,241,234,0.92)",
-                boxShadow: "0 12px 0 rgba(17,17,17,0.08)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              {/* ✅ Mobile: Local */}
-              <button className="btn btn--primary" onClick={generateLocal} disabled={!canGenerate} style={{ width: "100%" }}>
-                Local
-              </button>
-
-              {/* ✅ Mobile: IA */}
-              <button
-                className={["btn", loading ? "btn--loading" : ""].join(" ").trim()}
-                onClick={improveWithAI}
-                disabled={!canGenerate || loading || aiCount >= QUOTA_DAILY}
-                style={{ width: "100%" }}
-                title="Utilise le quota gratuit Gemini (20/jour)"
-              >
-                {loading ? (
-                  <span className="loaderCartoon" aria-label="Chargement">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                ) : (
-                  "IA"
-                )}
-              </button>
-
-              {result && (
-                <button className="btn" onClick={copyAll} style={{ width: "100%", gridColumn: "1 / -1" }}>
-                  Copier tout
-                </button>
-              )}
-            </div>
-          </div>
-
+          
           {/* Toast */}
           {toast && (
             <div
