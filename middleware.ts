@@ -7,25 +7,20 @@ const COOKIE_NAME = "sw_session";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ✅ Autoriser accès libre
-  const PUBLIC_PATHS = [
-    "/login",
-    "/api/login",
-    "/api/logout",
-    "/_next",
-    "/favicon.ico",
-    "/robots.txt",
-    "/sitemap.xml",
-  ];
+  // ✅ Laisser passer la page login + APIs auth
+  if (pathname.startsWith("/login")) return NextResponse.next();
+  if (pathname.startsWith("/api/login")) return NextResponse.next();
+  if (pathname.startsWith("/api/logout")) return NextResponse.next();
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p));
-  if (isPublic) return NextResponse.next();
+  // ✅ Laisser passer Next internals + fichiers statiques
+  if (pathname.startsWith("/_next")) return NextResponse.next();
+  if (pathname === "/favicon.ico") return NextResponse.next();
+  if (pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico|css|js|map)$/)) return NextResponse.next();
 
-  // ✅ Cookie session
-  const token = req.cookies.get(COOKIE_NAME)?.value;
+  // ✅ Vérifie cookie de session
+  const session = req.cookies.get(COOKIE_NAME)?.value;
 
-  // Pas connecté → redirige vers login
-  if (!token) {
+  if (!session) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
@@ -36,5 +31,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
