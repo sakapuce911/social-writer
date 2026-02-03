@@ -135,24 +135,19 @@ function extractHashtags(raw: string) {
   return out;
 }
 
-/** ✅ BONUS #1 — Auto-sync hashtags:
- * - accepte: "tag1 tag2" / "tag1, tag2" / "#tag1 #tag2"
- * - sort: "#tag1 #tag2" (unique, propre)
- */
+/** ✅ Auto-sync hashtags: "tag1 tag2" -> "#tag1 #tag2" */
 function normalizeHashtagsInput(input: string) {
   const raw = (input ?? "").trim();
   if (!raw) return "";
 
-  // si l’utilisateur a déjà mis des hashtags -> on les récupère
   const existing = extractHashtags(raw);
 
-  // récupère aussi les tokens sans # (séparés par espace/virgule)
   const tokens = raw
     .replace(/[\n\r]+/g, " ")
     .split(/[\s,;]+/g)
     .map((t) => t.trim())
     .filter(Boolean)
-    .map((t) => t.replace(/^#+/, "")) // enlève les # éventuels
+    .map((t) => t.replace(/^#+/, ""))
     .filter((t) => t.length >= 2);
 
   const all = [...existing.map((t) => t.replace(/^#/, "")), ...tokens];
@@ -160,7 +155,7 @@ function normalizeHashtagsInput(input: string) {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const t of all) {
-    const clean = t.replace(/[^\p{L}\p{N}_]+/gu, ""); // garde lettres/chiffres/underscore
+    const clean = t.replace(/[^\p{L}\p{N}_]+/gu, "");
     if (!clean) continue;
     const key = clean.toLowerCase();
     if (seen.has(key)) continue;
@@ -171,107 +166,30 @@ function normalizeHashtagsInput(input: string) {
   return out.join(" ").trim();
 }
 
-/** ✅ BONUS #2 — Auto-fix:
- * - coupe le hook à 180 caractères
- * - ajoute une question finale si manquante (caption ou cta)
- * - force 3–5 hashtags uniques
- */
-function smartTrim(s: string, max: number) {
-  const t = (s ?? "").trim();
-  if (t.length <= max) return t;
-  const cut = t.slice(0, max);
-
-  // coupe sur espace si possible
-  const lastSpace = cut.lastIndexOf(" ");
-  if (lastSpace > 80) return cut.slice(0, lastSpace).trim() + "…";
-  return cut.trim() + "…";
-}
-
-function endsWithQuestion(text: string) {
-  return (text ?? "").trim().endsWith("?");
-}
-
-function ensureQuestion(args: { caption: string; cta: string; language: Lang }) {
-  const { caption, cta, language } = args;
-
-  if (endsWithQuestion(caption) || endsWithQuestion(cta)) return { caption, cta };
-
-  const qFR = "Et vous, vous faites comment ?";
-  const qEN = "And you, how do you handle it?";
-
-  // priorité: CTA (plus logique), sinon caption
-  const nextCta = (cta ?? "").trim();
-  if (nextCta) {
-    return { caption, cta: `${nextCta}\n\n${language === "en" ? qEN : qFR}`.trim() };
-  }
-  return { caption: `${(caption ?? "").trim()}\n\n${language === "en" ? qEN : qFR}`.trim(), cta };
-}
-
-function autoFixAll(args: { caption: string; cta: string; hashtags: string; language: Lang }) {
-  let caption = (args.caption ?? "").toString();
-  let cta = (args.cta ?? "").toString();
-  let hashtags = (args.hashtags ?? "").toString();
-
-  // 1) Hook <= 180
-  const hook = getHook(caption);
-  if (hook) {
-    const trimmedHook = smartTrim(hook, 180);
-    // remplace uniquement la 1ère ligne non vide
-    const lines = caption.split("\n");
-    const idx = lines.findIndex((l) => l.trim().length > 0);
-    if (idx >= 0) {
-      lines[idx] = trimmedHook;
-      caption = lines.join("\n");
-    }
-  }
-
-  // 2) Question finale si manquante
-  const q = ensureQuestion({ caption, cta, language: args.language });
-  caption = q.caption;
-  cta = q.cta;
-
-  // 3) Hashtags 3–5 uniques
-  const normalized = normalizeHashtagsInput(hashtags);
-  const list = extractHashtags(normalized);
-
-  const final = list.slice(0, 5);
-  // si <3, on garde ce qu'il y a (pas d'invention)
-  hashtags = final.join(" ").trim();
-
-  return { caption: caption.trim(), cta: cta.trim(), hashtags: hashtags.trim() };
-}
-
 function computeLinkedInAudit(args: { subject: string; caption: string; cta: string; hashtags: string; language: Lang }): LinkedInAudit {
   const { caption, cta, hashtags } = args;
 
   const hook = getHook(caption);
   const hookLen = hook.length;
 
-  // paragraphs (caption)
   const paragraphs = splitParagraphs(caption);
   const paragraphCount = paragraphs.length;
 
-  // hashtags count
   const tagList = extractHashtags(hashtags);
   const hashtagCount = tagList.length;
 
-  // hook rule: 150–180
   const hookLengthOk = hookLen >= 150 && hookLen <= 180;
 
-  // single idea heuristic (simple & robuste)
   const listMarkers = (caption.match(/(^|\n)\s*(?:[-–•]|👉|✅|❌)/g) ?? []).length;
   const numberedSteps = (caption.match(/(^|\n)\s*\d+\s*[\)\.]/g) ?? []).length;
   const singleIdeaOk = paragraphCount <= 7 && listMarkers <= 10 && numberedSteps <= 6;
 
-  // question rule: fin du post (caption) OU cta finit par ?
   const capEnd = (caption ?? "").trim();
   const ctaEnd = (cta ?? "").trim();
   const openQuestionOk = capEnd.endsWith("?") || ctaEnd.endsWith("?");
 
-  // hashtags rule 3–5
   const hashtagCountOk = hashtagCount >= 3 && hashtagCount <= 5;
 
-  // mobile readability
   let tooLong = 0;
   let shortOk = 0;
   for (const p of paragraphs) {
@@ -288,7 +206,6 @@ function computeLinkedInAudit(args: { subject: string; caption: string; cta: str
     mobileReadable: mobileReadableOk,
   };
 
-  // score (5 critères x 20)
   let score = 0;
   score += checks.hookLength ? 20 : 0;
   score += checks.singleIdea ? 20 : 0;
@@ -296,7 +213,6 @@ function computeLinkedInAudit(args: { subject: string; caption: string; cta: str
   score += checks.hashtagCount ? 20 : 0;
   score += checks.mobileReadable ? 20 : 0;
 
-  // petits bonus “propreté” (cap à 100)
   if ((cta ?? "").trim().length >= 8) score += 2;
   if (paragraphCount >= 3 && paragraphCount <= 6) score += 2;
   score = Math.max(0, Math.min(100, score));
@@ -310,11 +226,8 @@ function computeLinkedInAudit(args: { subject: string; caption: string; cta: str
   }
 
   if (!singleIdeaOk) warnings.push("Trop d’éléments : garde 1 seule idée (moins de paragraphes / moins de listes).");
-
   if (!openQuestionOk) warnings.push("Pas de question finale : termine par une question ouverte.");
-
   if (!hashtagCountOk) warnings.push(`Hashtags : ${hashtagCount} détecté(s). Il en faut 3–5 (de niche).`);
-
   if (!mobileReadableOk) warnings.push("Lisibilité mobile : paragraphes trop longs. Fais des blocs courts (1–2 lignes).");
 
   const details: LinkedInDetails = {
@@ -328,7 +241,69 @@ function computeLinkedInAudit(args: { subject: string; caption: string; cta: str
   return { score, checks, details, warnings };
 }
 
-/** ✅ Gros SVG hero inline (aucun fichier à ajouter) */
+/** ✅ Aperçu LinkedIn (hook + Voir plus) */
+function LinkedInPreview(props: { caption: string; cta: string; hashtags: string }) {
+  const { caption, cta, hashtags } = props;
+  const [expanded, setExpanded] = useState(false);
+
+  const fullText = useMemo(() => {
+    const parts = [caption?.trim(), cta?.trim(), hashtags?.trim()].filter(Boolean);
+    return parts.join("\n\n").trim();
+  }, [caption, cta, hashtags]);
+
+  const COLLAPSE_AT = 210;
+
+  const collapsed = useMemo(() => {
+    if (!fullText) return "";
+    if (fullText.length <= COLLAPSE_AT) return fullText;
+    return fullText.slice(0, COLLAPSE_AT).trimEnd();
+  }, [fullText]);
+
+  const showMore = fullText.length > COLLAPSE_AT;
+
+  return (
+    <div
+      style={{
+        border: "3px solid rgba(17,17,17,0.12)",
+        borderRadius: 22,
+        background: "rgba(255,255,255,0.90)",
+        boxShadow: "0 12px 0 rgba(17,17,17,0.08)",
+        padding: 14,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 999, background: "rgba(17,17,17,0.10)" }} />
+        <div style={{ lineHeight: 1.2 }}>
+          <div style={{ fontWeight: 950 }}>Vous</div>
+          <div style={{ fontSize: 12, color: "rgba(17,17,17,0.62)", fontWeight: 800 }}>LinkedIn • Aperçu</div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12, whiteSpace: "pre-wrap", fontSize: 14, fontWeight: 800, color: "rgba(17,17,17,0.84)" }}>
+        {!expanded ? collapsed : fullText}
+        {showMore && !expanded && (
+          <>
+            {" "}
+            <span style={{ color: "rgba(10,102,194,0.95)", fontWeight: 950 }}>… voir plus</span>
+          </>
+        )}
+      </div>
+
+      {showMore && (
+        <button
+          className="btn"
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          style={{ marginTop: 10 }}
+        >
+          {expanded ? "Réduire" : "Voir plus"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** ✅ Gros SVG hero inline */
 function HeroCartoonSVG() {
   return (
     <svg viewBox="0 0 980 720" width="100%" height="100%" role="img" aria-label="Illustration SocialWriter">
@@ -385,10 +360,6 @@ function HeroCartoonSVG() {
           <text x="22" y="102" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">
             ta productivité…”
           </text>
-          <circle cx="225" cy="44" r="18" fill="rgba(255,77,109,0.18)" stroke="rgba(17,17,17,0.12)" strokeWidth="3" />
-          <text x="225" y="50" textAnchor="middle" fontSize="16" fontWeight="950" fill="rgba(17,17,17,0.8)">
-            !
-          </text>
         </g>
 
         <g transform="translate(430 250)">
@@ -398,10 +369,6 @@ function HeroCartoonSVG() {
           </text>
           <text x="22" y="82" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">
             Une question qui lance une vraie discussion.
-          </text>
-          <rect x="285" y="36" width="70" height="60" rx="18" fill="rgba(255,176,102,0.20)" stroke="rgba(17,17,17,0.12)" strokeWidth="3" />
-          <text x="320" y="74" textAnchor="middle" fontSize="22" fontWeight="950">
-            💬
           </text>
         </g>
 
@@ -413,13 +380,6 @@ function HeroCartoonSVG() {
           <text x="22" y="86" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">
             3–5 hashtags de niche (en bas du post)
           </text>
-
-          <g transform="translate(430 34)">
-            <rect x="0" y="0" width="110" height="48" rx="999" fill="rgba(124,92,255,0.16)" stroke="rgba(17,17,17,0.12)" strokeWidth="3" />
-            <text x="55" y="31" textAnchor="middle" fontSize="16" fontWeight="950" fill="rgba(17,17,17,0.82)">
-              copier
-            </text>
-          </g>
         </g>
       </g>
     </svg>
@@ -527,13 +487,13 @@ export default function Page() {
       hashtags: result.hashtags ?? "",
       language,
     });
-  }, [result?.caption, result?.cta, result?.hashtags, subject, language, result]);
+  }, [result?.caption, result?.cta, result?.hashtags, subject, language]);
 
   const badge = audit ? scoreBadge(audit.score) : null;
-  const proBlocked = useMemo(() => (audit ? audit.score < PRO_MIN_SCORE : false), [audit, PRO_MIN_SCORE]);
+  const proBlocked = useMemo(() => (audit ? audit.score < PRO_MIN_SCORE : false), [audit]);
   const remaining = Math.max(0, QUOTA_DAILY - aiCount);
 
-  // ✅ Génération IA
+  // ✅ Génération IA (déjà existant chez toi)
   async function generateWithAI() {
     setError(null);
 
@@ -567,9 +527,7 @@ export default function Page() {
       const raw = String(data.output ?? "").trim();
       const parsed = normalizeFromLLM(raw);
 
-      // Auto-normalize hashtags tout de suite
       parsed.hashtags = normalizeHashtagsInput(parsed.hashtags);
-
       setResult(parsed);
 
       setTimeout(() => {
@@ -624,17 +582,54 @@ export default function Page() {
     copy(result.hashtags);
   };
 
-  // ✅ Auto-fix bouton
-  const onAutoFix = () => {
-    if (!result) return;
-    const fixed = autoFixAll({
-      caption: result.caption,
-      cta: result.cta,
-      hashtags: result.hashtags,
-      language,
-    });
-    setResult((prev) => (prev ? { ...prev, ...fixed } : prev));
-    showToast("Auto-fix appliqué ✅");
+  // ✅ Auto-fix IA (IMPORTANT)
+  const onAutoFix = async () => {
+    if (!result || !audit) {
+      showToast("Génère un post d’abord ✅");
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/autofix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject,
+          caption: result.caption,
+          cta: result.cta,
+          hashtags: result.hashtags,
+          audit,
+          language,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(String(data?.error || "Auto-fix IA échoué"));
+      }
+
+      const nextCaption = String(data.caption ?? "").trim();
+      const nextCta = String(data.cta ?? "").trim();
+      const nextTags = Array.isArray(data.hashtags) ? data.hashtags.join(" ") : String(data.hashtags ?? "");
+
+      setResult({
+        caption: nextCaption,
+        cta: nextCta,
+        hashtags: normalizeHashtagsInput(nextTags),
+      });
+
+      showToast("Auto-fix IA appliqué ✨");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "Erreur Auto-fix IA.");
+      showToast("Erreur Auto-fix IA");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!mounted) return null;
@@ -775,8 +770,8 @@ export default function Page() {
             </div>
 
             <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Auto-fix</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>Coupe le hook, ajoute une question, force 3–5 hashtags.</div>
+              <div style={{ fontWeight: 950 }}>Auto-fix IA</div>
+              <div style={{ color: "var(--muted)", marginTop: 6 }}>L’IA corrige en utilisant le score + warnings LinkedIn.</div>
             </div>
 
             <div className="panel" style={{ padding: 16 }}>
@@ -794,7 +789,7 @@ export default function Page() {
         <div className="container">
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 950, fontSize: 26 }}>Générateur LinkedIn</div>
-            <div style={{ color: "var(--muted)", marginTop: 6 }}>Remplis. Clique. Édite. Auto-fix. Copie. Poste.</div>
+            <div style={{ color: "var(--muted)", marginTop: 6 }}>Remplis. Clique. Édite. Auto-fix IA. Copie. Poste.</div>
           </div>
 
           <div className="panel">
@@ -873,39 +868,25 @@ export default function Page() {
                   <div className="empty">
                     <div className="empty__icon">📝</div>
                     <div className="empty__title">Tes résultats apparaîtront ici</div>
-                    <div className="empty__sub">Génère, puis édite (caption/CTA/hashtags). Auto-fix est dispo.</div>
+                    <div className="empty__sub">Génère, puis édite (caption/CTA/hashtags). Auto-fix IA est dispo.</div>
                   </div>
                 ) : (
                   <div style={{ display: "grid", gap: 12 }}>
-                    {/* ====== EDITOR CARD ====== */}
                     <div className="result">
                       <div className="result__top">
                         <div style={{ fontWeight: 950 }}>Éditeur</div>
 
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                          <button className="btn" onClick={onAutoFix} disabled={loading} title="Auto-fix (hook, question, hashtags)">
-                            Auto-fix ✨
+                          <button className="btn" onClick={onAutoFix} disabled={loading || !audit} title="Auto-fix IA basé sur score + warnings">
+                            Auto-fix IA ✨
                           </button>
 
-                          <button
-                            className="btn"
-                            onClick={copyAll}
-                            disabled={loading || proBlocked}
-                            title={proBlocked ? `Mode Pro : score < ${PRO_MIN_SCORE}` : "Copier tout"}
-                          >
+                          <button className="btn" onClick={copyAll} disabled={loading || proBlocked} title={proBlocked ? `Mode Pro : score < ${PRO_MIN_SCORE}` : "Copier tout"}>
                             Copier tout
                           </button>
 
                           {audit && badge && (
-                            <span
-                              style={{
-                                padding: "8px 12px",
-                                borderRadius: 999,
-                                fontWeight: 950,
-                                border: "3px solid rgba(17,17,17,0.10)",
-                                background: "rgba(255,255,255,0.84)",
-                              }}
-                            >
+                            <span style={{ padding: "8px 12px", borderRadius: 999, fontWeight: 950, border: "3px solid rgba(17,17,17,0.10)", background: "rgba(255,255,255,0.84)" }}>
                               {badge.label} • {audit.score}/100
                             </span>
                           )}
@@ -916,10 +897,16 @@ export default function Page() {
                         <div className="swWarnings" style={{ marginTop: 12 }}>
                           <div className="swWarnings__title">Mode Pro : copie bloquée</div>
                           <div style={{ color: "var(--muted)", fontWeight: 900 }}>
-                            Score &lt; {PRO_MIN_SCORE}. Corrige les warnings (ou clique Auto-fix).
+                            Score &lt; {PRO_MIN_SCORE}. Corrige les warnings (ou clique Auto-fix IA).
                           </div>
                         </div>
                       )}
+
+                      {/* ✅ Aperçu LinkedIn réel */}
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ fontWeight: 950, marginBottom: 8 }}>Aperçu LinkedIn</div>
+                        <LinkedInPreview caption={result.caption} cta={result.cta} hashtags={result.hashtags} />
+                      </div>
 
                       <div style={{ padding: 14, display: "grid", gap: 12 }}>
                         {/* ===== CAPTION ===== */}
@@ -993,7 +980,7 @@ export default function Page() {
                             value={result.hashtags}
                             onChange={(e) => {
                               const next = e.target.value;
-                              const normalized = normalizeHashtagsInput(next); // ✅ Auto-sync en direct
+                              const normalized = normalizeHashtagsInput(next);
                               setResult((prev) => (prev ? { ...prev, hashtags: normalized } : prev));
                             }}
                             onBlur={() => {
@@ -1004,91 +991,82 @@ export default function Page() {
                           />
                         </div>
                       </div>
-                    </div>
 
-                    {/* ====== AUDIT PANEL (SIBLING) ====== */}
-                    {audit && (
-                      <div className="panel" style={{ padding: 16 }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                          <div style={{ fontWeight: 950, fontSize: 18 }}>Score LinkedIn 2026</div>
+                      {audit && (
+                        <div className="panel" style={{ padding: 16 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                            <div style={{ fontWeight: 950, fontSize: 18 }}>Score LinkedIn 2026</div>
 
-                          {badge && (
-                            <span
-                              style={{
-                                padding: "8px 12px",
-                                borderRadius: 999,
-                                fontWeight: 950,
-                                border: `3px solid ${badge.bd}`,
-                                background: badge.bg,
-                              }}
-                            >
-                              {badge.label} • {audit.score}/100
-                            </span>
+                            {badge && (
+                              <span style={{ padding: "8px 12px", borderRadius: 999, fontWeight: 950, border: `3px solid ${badge.bd}`, background: badge.bg }}>
+                                {badge.label} • {audit.score}/100
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="swChecks">
+                            <div className={["swCheck", audit.checks.hookLength ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                              <div className="swCheck__icon">{audit.checks.hookLength ? "✓" : "✗"}</div>
+                              <div className="swCheck__text">
+                                <div className="swCheck__label">Hook 150–180 caractères</div>
+                                <div className="swCheck__hint">
+                                  Hook détecté : <b>{audit.details.hookLengthChars}</b> caractères
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={["swCheck", audit.checks.singleIdea ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                              <div className="swCheck__icon">{audit.checks.singleIdea ? "✓" : "✗"}</div>
+                              <div className="swCheck__text">
+                                <div className="swCheck__label">1 seule idée (angle clair)</div>
+                                <div className="swCheck__hint">
+                                  Paragraphes : <b>{audit.details.paragraphCount}</b> (conseillé ≤ 7)
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={["swCheck", audit.checks.openQuestion ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                              <div className="swCheck__icon">{audit.checks.openQuestion ? "✓" : "✗"}</div>
+                              <div className="swCheck__text">
+                                <div className="swCheck__label">Question ouverte en fin de post</div>
+                                <div className="swCheck__hint">La caption ou la CTA doit finir par “?”</div>
+                              </div>
+                            </div>
+
+                            <div className={["swCheck", audit.checks.hashtagCount ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                              <div className="swCheck__icon">{audit.checks.hashtagCount ? "✓" : "✗"}</div>
+                              <div className="swCheck__text">
+                                <div className="swCheck__label">3–5 hashtags</div>
+                                <div className="swCheck__hint">
+                                  Hashtags détectés : <b>{audit.details.hashtagCount}</b>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={["swCheck", audit.checks.mobileReadable ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                              <div className="swCheck__icon">{audit.checks.mobileReadable ? "✓" : "✗"}</div>
+                              <div className="swCheck__text">
+                                <div className="swCheck__label">Lisibilité mobile (paragraphes courts)</div>
+                                <div className="swCheck__hint">
+                                  Paragraphes trop longs : <b>{audit.details.tooLongParagraphs}</b>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {audit.warnings.length > 0 && (
+                            <div className="swWarnings">
+                              <div className="swWarnings__title">Warnings (temps réel)</div>
+                              <ul>
+                                {audit.warnings.map((w, i) => (
+                                  <li key={i}>{w}</li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
                         </div>
-
-                        <div className="swChecks">
-                          <div className={["swCheck", audit.checks.hookLength ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
-                            <div className="swCheck__icon">{audit.checks.hookLength ? "✓" : "✗"}</div>
-                            <div className="swCheck__text">
-                              <div className="swCheck__label">Hook 150–180 caractères</div>
-                              <div className="swCheck__hint">
-                                Hook détecté : <b>{audit.details.hookLengthChars}</b> caractères
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className={["swCheck", audit.checks.singleIdea ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
-                            <div className="swCheck__icon">{audit.checks.singleIdea ? "✓" : "✗"}</div>
-                            <div className="swCheck__text">
-                              <div className="swCheck__label">1 seule idée (angle clair)</div>
-                              <div className="swCheck__hint">
-                                Paragraphes : <b>{audit.details.paragraphCount}</b> (conseillé ≤ 7)
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className={["swCheck", audit.checks.openQuestion ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
-                            <div className="swCheck__icon">{audit.checks.openQuestion ? "✓" : "✗"}</div>
-                            <div className="swCheck__text">
-                              <div className="swCheck__label">Question ouverte en fin de post</div>
-                              <div className="swCheck__hint">La caption ou la CTA doit finir par “?”</div>
-                            </div>
-                          </div>
-
-                          <div className={["swCheck", audit.checks.hashtagCount ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
-                            <div className="swCheck__icon">{audit.checks.hashtagCount ? "✓" : "✗"}</div>
-                            <div className="swCheck__text">
-                              <div className="swCheck__label">3–5 hashtags</div>
-                              <div className="swCheck__hint">
-                                Hashtags détectés : <b>{audit.details.hashtagCount}</b>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className={["swCheck", audit.checks.mobileReadable ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
-                            <div className="swCheck__icon">{audit.checks.mobileReadable ? "✓" : "✗"}</div>
-                            <div className="swCheck__text">
-                              <div className="swCheck__label">Lisibilité mobile (paragraphes courts)</div>
-                              <div className="swCheck__hint">
-                                Paragraphes trop longs : <b>{audit.details.tooLongParagraphs}</b>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {audit.warnings.length > 0 && (
-                          <div className="swWarnings">
-                            <div className="swWarnings__title">Warnings (temps réel)</div>
-                            <ul>
-                              {audit.warnings.map((w, i) => (
-                                <li key={i}>{w}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1132,8 +1110,8 @@ export default function Page() {
             </div>
 
             <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Auto-fix</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>Hook ≤ 180, question finale, hashtags 3–5.</div>
+              <div style={{ fontWeight: 950 }}>Auto-fix IA</div>
+              <div style={{ color: "var(--muted)", marginTop: 6 }}>On envoie ton post + score + warnings à l’IA qui corrige vraiment.</div>
             </div>
 
             <div className="panel" style={{ padding: 16 }}>

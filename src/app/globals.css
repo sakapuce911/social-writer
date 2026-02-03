@@ -22,6 +22,14 @@
   /* ombres + propres */
   --shadowSoft: 0 10px 30px rgba(17,17,17,0.08);
   --shadowSoft2: 0 6px 16px rgba(17,17,17,0.08);
+
+  /* ✅ Ajouts UI checks */
+  --ok: rgba(30, 180, 120, 1);
+  --okBg: rgba(30, 180, 120, 0.10);
+  --bad: rgba(255, 77, 109, 1);
+  --badBg: rgba(255, 77, 109, 0.10);
+  --warn: rgba(255, 176, 102, 1);
+  --warnBg: rgba(255, 176, 102, 0.12);
 }
 
 *{ box-sizing:border-box; }
@@ -178,6 +186,13 @@ textarea{ resize: vertical; }
   color: #111;
 }
 .btn:disabled{ opacity: .55; cursor: not-allowed; }
+
+/* ✅ optionnel: bouton bloqué “Mode Pro” plus explicite */
+.btn--blocked{
+  opacity: .55;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
 
 /* ===== Loader ===== */
 .btn--loading{ cursor: wait; }
@@ -348,16 +363,6 @@ textarea{ resize: vertical; }
   justify-content: space-between;
   gap: 10px;
 }
-.pre{
-  padding: 14px;
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  line-height: 1.55;
-  font-family: ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  color: rgba(17,17,17,0.92);
-}
 
 /* Features grid */
 .featuresGrid{
@@ -366,187 +371,6 @@ textarea{ resize: vertical; }
   gap: 12px;
 }
 @media (max-width: 900px){ .featuresGrid{ grid-template-columns: 1fr; } }
-
-/* ===== Network grid ===== */
-.networkGrid{
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-}
-@media (max-width: 900px){ .networkGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
-@media (max-width: 520px){ .networkGrid{ grid-template-columns: 1fr; } }
-
-/* ===== AESTHETIC NETWORK CARDS (networkCard2) — SANS CARTE BLANCHE ===== */
-.networkCard2{
-  --bannerBg: #111;
-  --netGlow: rgba(124,92,255,0.14);
-
-  /* ✅ on enlève la “carte blanche” */
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  border-radius: 0;
-
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-
-  /* ✅ on ne garde que le carré (banner) */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* espace entre les carrés */
-  min-height: auto;
-  transition: transform .14s ease;
-}
-
-.networkCard2:hover{
-  transform: translateY(-2px);
-}
-.networkCard2:active{
-  transform: translateY(0px) scale(.99);
-}
-
-/* ✅ on retire le glow de fond de la carte */
-.networkCard2:before{
-  content: none;
-}
-
-/* ✅ si jamais le texte s’affiche encore : on le cache (optionnel) */
-.netInfo{
-  display: none;
-}
-
-
-/* ✅ banner carré mais compact (et propre) */
-.netBanner{
-  position: relative;
-  z-index: 1;
-  width: 92px;
-  aspect-ratio: 1 / 1;
-  border-radius: 20px;
-  border: 1px solid rgba(17,17,17,0.10);
-  background: var(--bannerBg);
-  box-shadow: 0 10px 20px rgba(17,17,17,0.12);
-  overflow:hidden;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.netBanner__inner{
-  width: 100%;
-  height: 100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position: relative;
-}
-
-/* shine très fin */
-.netBanner__inner:after{
-  content:"";
-  position:absolute;
-  left:-60px;
-  top:-70px;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.12);
-  transform: rotate(14deg);
-}
-
-/* logo container */
-.netLogo{
-  width: 58px;
-  height: 58px;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.10);
-  border: 1px solid rgba(255,255,255,0.20);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position: relative;
-  z-index: 1;
-}
-.netLogo svg{ width: 40px; height: 40px; display:block; }
-
-/* info à droite */
-.netInfo{
-  position: relative;
-  z-index: 1;
-  display:grid;
-  gap: 6px;
-  align-content: center;
-}
-
-.netTitleRow{
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.netName{
-  font-weight: 950;
-  font-size: 16px;
-  letter-spacing: -0.2px;
-  line-height: 1.1;
-}
-
-.netHint{
-  color: rgba(17,17,17,0.62);
-  font-size: 12.5px;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-/* badge choisi (discret, pas massif) */
-.checkPill{
-  font-size: 12px;
-  font-weight: 950;
-  border-radius: 999px;
-  padding: 6px 10px;
-  border: 1px solid rgba(17,17,17,0.12);
-  background: rgba(255,255,255,0.92);
-  box-shadow: 0 6px 14px rgba(17,17,17,0.08);
-}
-
-/* selected style : ring clean */
-.networkCard2--selected{
-  border-color: rgba(124,92,255,0.40);
-  box-shadow: 0 16px 40px rgba(124,92,255,0.14);
-}
-.networkCard2--selected .netBanner{
-  box-shadow: 0 16px 34px rgba(17,17,17,0.16);
-}
-
-/* micro pop */
-@keyframes pop2{
-  0%{ transform: scale(1); }
-  35%{ transform: scale(1.02); }
-  100%{ transform: scale(1); }
-}
-.networkCard2--pop{ animation: pop2 .22s ease; }
-
-/* mobile : stack plus clean */
-@media (max-width: 520px){
-  .networkCard2{
-    grid-template-columns: 78px 1fr;
-    min-height: 100px;
-  }
-  .netBanner{ width: 78px; border-radius: 18px; }
-  .netLogo{ width: 52px; height: 52px; border-radius: 16px; }
-  .netLogo svg{ width: 36px; height: 36px; }
-}
-
-/* ===== MobileBar visible only on mobile ===== */
-.mobileBar{ display:none; }
-@media (max-width: 760px){
-  .mobileBar{ display:block; }
-}
 
 /* ===== Sections spacing helpers ===== */
 .section{ padding: 26px 0; }
@@ -563,27 +387,23 @@ textarea{ resize: vertical; }
   .row{ grid-template-columns: 1fr; }
   .btn{ padding: 13px 16px; }
 }
+
 /* ================================
    NETWORK PICKER — STYLE "APP ICONS"
    Objectif: 4 icônes propres, no texte
 ================================ */
 
-/* grille en mode icons */
 .networkGrid{
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 12px;
 }
-
-@media (max-width: 900px){
-  .networkGrid{ grid-template-columns: repeat(4, 1fr); }
-}
 @media (max-width: 520px){
-  .networkGrid{ grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .networkGrid{ gap: 10px; }
 }
 
-/* bouton = wrapper invisible (pas de carte blanche) */
+/* wrapper invisible */
 .networkCard2{
   background: transparent !important;
   border: none !important;
@@ -597,19 +417,19 @@ textarea{ resize: vertical; }
 
   cursor: pointer;
   transition: transform .12s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .networkCard2:hover{ transform: translateY(-2px); }
 .networkCard2:active{ transform: translateY(0px) scale(.99); }
 
-/* on cache totalement les textes et le badge */
-.networkCard2 .netInfo{ display: none !important; }
-.networkCard2 .checkPill{ display: none !important; }
-
-/* on supprime l’overlay glow de la carte */
 .networkCard2:before{ content: none !important; }
 
-/* l’icône (banner) devient l’unique UI */
+/* on cache totalement les textes + badge (si jamais) */
+.netInfo{ display: none !important; }
+.checkPill{ display: none !important; }
+
+/* banner icône */
 .netBanner{
   width: 112px;
   aspect-ratio: 1 / 1;
@@ -617,7 +437,6 @@ textarea{ resize: vertical; }
   border: 1px solid rgba(17,17,17,0.10);
   background: var(--bannerBg);
 
-  /* ombre premium */
   box-shadow:
     0 14px 30px rgba(17,17,17,0.10),
     inset 0 1px 0 rgba(255,255,255,0.18);
@@ -630,7 +449,7 @@ textarea{ resize: vertical; }
   overflow: hidden;
 }
 
-/* shine très doux */
+/* shine doux */
 .netBanner:after{
   content:"";
   position:absolute;
@@ -643,7 +462,6 @@ textarea{ resize: vertical; }
   transform: rotate(12deg);
 }
 
-/* logo au centre, sans bloc */
 .netLogo{
   width: 64px;
   height: 64px;
@@ -663,7 +481,6 @@ textarea{ resize: vertical; }
     0 12px 26px rgba(17,17,17,0.10),
     inset 0 1px 0 rgba(255,255,255,0.18);
 }
-
 .networkCard2--selected .netBanner:before{
   content:"";
   position:absolute;
@@ -676,10 +493,17 @@ textarea{ resize: vertical; }
 
 /* mobile sizing */
 @media (max-width: 520px){
-  .netBanner{ width: 92px; border-radius: 24px; }
-  .netLogo{ width: 56px; height: 56px; }
-  .netLogo svg{ width: 42px; height: 42px; }
+  .netBanner{ width: 82px; border-radius: 22px; }
+  .netLogo{ width: 52px; height: 52px; }
+  .netLogo svg{ width: 38px; height: 38px; }
 }
+
+/* ===== MobileBar visible only on mobile ===== */
+.mobileBar{ display:none; }
+@media (max-width: 760px){
+  .mobileBar{ display:block; }
+}
+
 /* ================================
    MOBILE FIX — éviter double bouton + recouvrement
 ================================ */
@@ -687,7 +511,7 @@ textarea{ resize: vertical; }
 /* 1) La page doit garder de la place pour la barre sticky en bas */
 @media (max-width: 760px){
   .page{
-    padding-bottom: 110px; /* réserve l'espace de la MobileBar */
+    padding-bottom: 110px;
   }
 }
 
@@ -698,10 +522,10 @@ textarea{ resize: vertical; }
   }
 }
 
-/* 3) MobileBar: la rendre plus "app-like" et éviter qu'elle paraisse énorme */
+/* 3) MobileBar en fixed */
 @media (max-width: 760px){
   .mobileBar{
-    position: fixed !important;  /* mieux que sticky sur mobile */
+    position: fixed !important;
     left: 0;
     right: 0;
     bottom: 10px;
@@ -710,21 +534,245 @@ textarea{ resize: vertical; }
   }
 }
 
-/* 4) Réseaux: icônes un peu plus petites pour mobile */
+/* =========================================================
+   ✅ AJOUTS — CHECKLIST / WARNINGS / ÉDITEUR CAPTION
+   (utilisés par page.tsx)
+========================================================= */
+
+.swBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(17,17,17,0.12);
+  background: rgba(255,255,255,0.92);
+  box-shadow: var(--shadowSoft2);
+  font-weight: 950;
+  font-size: 12px;
+}
+.swBadge--ok{ border-color: rgba(30,180,120,0.26); background: var(--okBg); }
+.swBadge--bad{ border-color: rgba(255,77,109,0.26); background: var(--badBg); }
+.swBadge--warn{ border-color: rgba(255,176,102,0.28); background: var(--warnBg); }
+
+.swChecks{
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.swCheck{
+  display:flex;
+  gap: 10px;
+  align-items:flex-start;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(17,17,17,0.10);
+  background: rgba(255,255,255,0.76);
+  box-shadow: 0 8px 18px rgba(17,17,17,0.06);
+}
+
+.swCheck__icon{
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight: 950;
+  border: 1px solid rgba(17,17,17,0.12);
+  background: rgba(255,255,255,0.92);
+  flex: 0 0 auto;
+}
+
+.swCheck--ok .swCheck__icon{
+  border-color: rgba(30,180,120,0.25);
+  background: var(--okBg);
+  color: rgba(20,130,90,1);
+}
+.swCheck--bad .swCheck__icon{
+  border-color: rgba(255,77,109,0.25);
+  background: var(--badBg);
+  color: rgba(205,55,85,1);
+}
+
+.swCheck__text{ display:grid; gap: 2px; }
+.swCheck__label{ font-weight: 950; }
+.swCheck__hint{
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.swWarnings{
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,176,102,0.28);
+  background: var(--warnBg);
+  box-shadow: 0 10px 22px rgba(17,17,17,0.06);
+}
+.swWarnings__title{
+  font-weight: 950;
+  margin-bottom: 8px;
+}
+.swWarnings ul{
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+.swWarnings li{
+  color: rgba(200,120,40,1);
+  font-weight: 900;
+}
+
+/* ✅ éditeur de caption (textarea à la place de <pre>) */
+.swEditor{
+  width: 100%;
+  min-height: 260px;
+  padding: 14px;
+  margin: 0;
+  border: 1px solid rgba(17,17,17,0.12);
+  border-radius: 16px;
+  outline: none;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 10px 24px rgba(17,17,17,0.08);
+
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+  color: rgba(17,17,17,0.92);
+  resize: vertical;
+}
+.swEditor:focus{
+  border-color: rgba(124,92,255,0.34);
+  box-shadow: 0 12px 28px rgba(124,92,255,0.12);
+}
 @media (max-width: 520px){
-  .networkGrid{
-    gap: 10px;
-  }
-  .netBanner{
-    width: 82px;        /* était 92px */
-    border-radius: 22px;
-  }
-  .netLogo{
-    width: 52px;
-    height: 52px;
-  }
-  .netLogo svg{
-    width: 38px;
-    height: 38px;
-  }
+  .swEditor{ min-height: 220px; }
+}
+/* =========================================================
+   ✅ MICRO-STYLE — "APP EDITOR" (Caption / CTA / Hashtags)
+   - header sticky + compteur + helper
+   - look premium, mobile-friendly
+   Utilise dans page.tsx :
+     <div className="swBlock">
+       <div className="swBlock__head">
+         <div className="swBlock__title">Caption</div>
+         <div className="swBlock__meta">
+           <span className="swCount">123</span>
+         </div>
+       </div>
+       <div className="swBlock__help">…</div>
+       <textarea className="swEditor swEditor--caption" />
+     </div>
+========================================================= */
+
+.swBlock{
+  border-radius: 18px;
+  border: 1px solid rgba(17,17,17,0.12);
+  background: rgba(255,255,255,0.72);
+  box-shadow: 0 10px 24px rgba(17,17,17,0.08);
+  overflow: hidden;
+}
+
+/* Header sticky */
+.swBlock__head{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(17,17,17,0.10);
+  background: rgba(255,255,255,0.86);
+  backdrop-filter: blur(10px);
+}
+
+.swBlock__title{
+  font-weight: 950;
+  letter-spacing: -0.2px;
+}
+
+.swBlock__meta{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+
+/* compteur (badge) */
+.swCount{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(17,17,17,0.12);
+  background: rgba(255,255,255,0.92);
+  font-weight: 950;
+  font-size: 12px;
+  box-shadow: 0 6px 14px rgba(17,17,17,0.06);
+}
+
+/* helper compact */
+.swBlock__help{
+  padding: 8px 12px 0;
+  font-size: 12px;
+  color: rgba(17,17,17,0.62);
+  font-weight: 850;
+}
+
+/* editor mieux intégré dans le bloc */
+.swBlock .swEditor{
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  min-height: 220px; /* par défaut */
+  padding: 12px;
+}
+
+/* focus ring clean sur tout le bloc */
+.swBlock:focus-within{
+  border-color: rgba(124,92,255,0.34);
+  box-shadow: 0 12px 28px rgba(124,92,255,0.12);
+}
+
+/* Variantes hauteur */
+.swEditor--caption{ min-height: 260px; }
+.swEditor--cta{ min-height: 160px; }
+.swEditor--hashtags{ min-height: 120px; }
+
+/* micro “chips” style si tu mets un helper en tags */
+.swHintChips{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px 0;
+}
+.swChip{
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(17,17,17,0.10);
+  background: rgba(255,255,255,0.86);
+  font-weight: 900;
+  font-size: 12px;
+  box-shadow: 0 6px 14px rgba(17,17,17,0.06);
+}
+.swChip--ok{ border-color: rgba(30,180,120,0.22); background: var(--okBg); }
+.swChip--warn{ border-color: rgba(255,176,102,0.28); background: var(--warnBg); }
+.swChip--bad{ border-color: rgba(255,77,109,0.22); background: var(--badBg); }
+
+@media (max-width: 520px){
+  .swBlock__head{ padding: 10px 10px; }
+  .swBlock .swEditor{ padding: 10px; }
+  .swEditor--caption{ min-height: 220px; }
 }
