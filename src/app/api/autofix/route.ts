@@ -209,9 +209,14 @@ ${rawText}
     }
 
     return NextResponse.json({
-      output: parsed,
-      meta: { model: r.model, keyIndex: r.keyIndex },
-    });
+  output: {
+    caption: parsed.caption,
+    cta: parsed.cta,
+    hashtags: normalizeHashtagsToString(parsed.hashtags),
+  },
+  meta: { model: r.model, keyIndex: r.keyIndex },
+});
+
   } catch (e: unknown) {
     console.error("Autofix route crash:", e);
     const msg = e instanceof Error ? e.message : String(e);

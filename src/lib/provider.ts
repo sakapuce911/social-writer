@@ -1,135 +1,134 @@
 // src/lib/provider.ts
-// Provider unique: Google Generative Language (Gemini) via REST
-// ✅ Rotation des clés (LLM_API_KEYS -> fallback LLM_API_KEY)
-// ✅ Retry automatique sur erreurs quota / rate limit
-// ✅ Extraction texte robuste
+import "server-only";
 
-export type LLMResult = {
-  text: string;
-  raw?: any;
-  keyIndexUsed?: number;
+type CallOpts = {
+  temperature?: number;
+  maxOutputTokens?: number;
+  system?: string;
 };
 
-function splitKeys(s?: string) {
-  return (s ?? "")
+type CallResult = {
+  text: string;
+  model: string;
+  keyIndex: number;
+};
+
+function getEnvList(name: string): string[] {
+  const raw = (process.env[name] ?? "").trim();
+  if (!raw) return [];
+  return raw
     .split(",")
-    .map((k) => k.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
 }
 
-function getKeys(): string[] {
-  const keys = splitKeys(process.env.LLM_API_KEYS);
-  if (keys.length > 0) return keys;
-
-  const single = (process.env.LLM_API_KEY ?? "").trim();
-  if (single) return [single];
-
-  return [];
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
-function isQuotaOrRateLimit(status: number, message: string) {
-  const m = (message ?? "").toLowerCase();
-  return (
-    status === 429 ||
-    m.includes("quota") ||
-    m.includes("resource_exhausted") ||
-    m.includes("rate limit") ||
-    m.includes("exceeded your current quota") ||
-    m.includes("limit: 0")
-  );
-}
-
-function extractGeminiText(data: any): string {
-  // Format courant : candidates[0].content.parts[].text
-  const t1 = data?.candidates?.[0]?.content?.parts
-    ?.map((p: any) => p?.text)
-    .filter(Boolean)
-    .join("\n");
-  if (typeof t1 === "string" && t1.trim()) return t1.trim();
-
-  // Autres formats possibles
+function extractTextFromGemini(data: any): string {
+  const parts = data?.candidates?.[0]?.content?.parts;
+  if (Array.isArray(parts)) {
+    const t = parts.map((p: any) => p?.text).filter(Boolean).join("\n").trim();
+    if (t) return t;
+  }
   const t2 = data?.candidates?.[0]?.output;
   if (typeof t2 === "string" && t2.trim()) return t2.trim();
-
-  const t3 = data?.candidates?.[0]?.content?.text;
+  const t3 = data?.text;
   if (typeof t3 === "string" && t3.trim()) return t3.trim();
-
-  const t4 = data?.text;
-  if (typeof t4 === "string" && t4.trim()) return t4.trim();
-
   return "";
 }
 
-/**
- * callLLM(prompt) -> { text }
- * - prompt: string (texte complet)
- * - tente clé par clé si quota / rate limit
- */
-export async function callLLM(
-  prompt: string,
-  opts?: {
-    temperature?: number;
-    maxOutputTokens?: number;
-    model?: string; // override
-  }
-): Promise<LLMResult> {
-  const keys = getKeys();
+function isRetryableStatus(status: number) {
+  // 503 overloaded / 500 server, parfois 429 rate-limit
+  return status === 503 || status === 500 || status === 429;
+}
+
+function isQuotaError(msg: string) {
+  const m = (msg ?? "").toLowerCase();
+  return (
+    m.includes("quota") ||
+    m.includes("rate limit") ||
+    m.includes("resource_exhausted") ||
+    m.includes("exceeded your current quota")
+  );
+}
+
+export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<CallResult> {
+  const baseUrl = (process.env.LLM_BASE_URL ?? "https://generativelanguage.googleapis.com/v1beta").replace(/\/+$/, "");
+  const keys =
+    getEnvList("LLM_API_KEYS").length > 0
+      ? getEnvList("LLM_API_KEYS")
+      : (process.env.LLM_API_KEY ? [String(process.env.LLM_API_KEY)] : []);
+
   if (keys.length === 0) {
-    throw new Error("LLM_API_KEYS/LLM_API_KEY manquant. Ajoute-le dans .env.local et sur Vercel.");
+    throw new Error("LLM_API_KEY(S) manquant. Ajoute LLM_API_KEYS dans .env.local et sur Vercel.");
   }
 
-  const baseUrl = (process.env.LLM_BASE_URL ?? "https://generativelanguage.googleapis.com").replace(/\/+$/, "");
-  const model = (opts?.model ?? process.env.LLM_MODEL ?? "gemini-2.0-flash").trim();
+  const models =
+    getEnvList("LLM_MODELS").length > 0
+      ? getEnvList("LLM_MODELS")
+      : (process.env.LLM_MODEL ? [String(process.env.LLM_MODEL)] : ["gemini-2.5-flash"]);
 
-  const temperature = typeof opts?.temperature === "number" ? opts!.temperature : 0.7;
-  const maxOutputTokens = typeof opts?.maxOutputTokens === "number" ? opts!.maxOutputTokens : 900;
+  const temperature = typeof opts.temperature === "number" ? opts.temperature : 0.6;
+  const maxOutputTokens = typeof opts.maxOutputTokens === "number" ? opts.maxOutputTokens : 900;
 
-  let lastErrMsg = "Erreur inconnue";
-  let lastStatus = 0;
+  let lastErr: { status?: number; message: string } | null = null;
 
-  // Rotation : on essaye chaque clé
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
+  // clé1 -> clé2 -> clé3
+  for (let k = 0; k < keys.length; k++) {
+    const key = keys[k];
 
-    const url = `${baseUrl}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+    // modèle1 -> modèle2 -> ...
+    for (const model of models) {
+      const url = `${baseUrl}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
 
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: String(prompt ?? "") }] }],
-        generationConfig: {
-          temperature,
-          maxOutputTokens,
-        },
-      }),
-    });
+      // petit retry local si 503 (overloaded)
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(opts.system
+              ? { systemInstruction: { parts: [{ text: opts.system }] } }
+              : {}),
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { temperature, maxOutputTokens },
+          }),
+        });
 
-    const data = await resp.json().catch(() => null);
+        const data = await resp.json().catch(() => null);
 
-    if (resp.ok) {
-      const text = extractGeminiText(data);
-      if (!text) {
-        // Réponse vide => on tente la clé suivante (rare, mais possible)
-        lastErrMsg = "Réponse Gemini vide ou inattendue.";
-        lastStatus = 200;
-        continue;
+        if (resp.ok) {
+          const text = extractTextFromGemini(data);
+          if (!text) {
+            lastErr = { status: 502, message: "Réponse Gemini vide ou inattendue." };
+            break; // essaye modèle suivant
+          }
+          return { text, model, keyIndex: k };
+        }
+
+        const msg = data?.error?.message ? String(data.error.message) : `Erreur Gemini (${resp.status})`;
+        lastErr = { status: resp.status, message: msg };
+
+        // 404 => modèle invalide => on passe au modèle suivant (sans retry)
+        if (resp.status === 404) break;
+
+        // quota / rate limit => on passe à la clé suivante (sans retry)
+        if (resp.status === 429 || isQuotaError(msg)) break;
+
+        // overloaded => petit backoff puis retry
+        if (isRetryableStatus(resp.status) && attempt === 0) {
+          await sleep(900);
+          continue;
+        }
+
+        break;
       }
-      return { text, raw: data, keyIndexUsed: i };
     }
-
-    const msg = data?.error?.message ? String(data.error.message) : `Erreur Gemini (${resp.status})`;
-    lastErrMsg = msg;
-    lastStatus = resp.status;
-
-    // quota/rate limit => on tente la clé suivante
-    if (isQuotaOrRateLimit(resp.status, msg)) {
-      continue;
-    }
-
-    // Autres erreurs => on stop, pas besoin de brûler toutes les clés
-    break;
   }
 
-  throw new Error(`Toutes les clés ont échoué. Dernière erreur (${lastStatus}) : ${lastErrMsg}`);
+  const s = lastErr?.status ?? 500;
+  const m = lastErr?.message ?? "Erreur inconnue";
+  throw new Error(`Toutes les clés ont échoué. Dernière erreur (${s}) : ${m}`);
 }
