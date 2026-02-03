@@ -165,7 +165,12 @@ Sortie attendue (JSON strict):
     // ✅ Appel via provider (rotation clés + retry + fallback models)
     const r = await callLLM(prompt, { temperature: 0.5, maxOutputTokens: 900 });
 
-    let rawText = stripCodeFences(String(r.text ?? "")).trim();
+    // ✅ FIX TS: callLLM est typé LLMResult, qui n’expose pas model/keyIndex
+    // On récupère ces champs si présents, sans casser le build.
+    const metaModel = (r as any)?.model ?? null;
+    const metaKeyIndex = (r as any)?.keyIndex ?? null;
+
+    let rawText = stripCodeFences(String((r as any)?.text ?? "")).trim();
 
     // 1) parse direct
     let parsed = coerceOutput(rawText);
@@ -192,7 +197,7 @@ ${rawText}
 `.trim();
 
       const rr = await callLLM(repairPrompt, { temperature: 0.2, maxOutputTokens: 700 });
-      const repaired = stripCodeFences(String(rr.text ?? "")).trim();
+      const repaired = stripCodeFences(String((rr as any)?.text ?? "")).trim();
 
       parsed = coerceOutput(repaired) || coerceOutput(extractFirstJSONObject(repaired));
       rawText = repaired || rawText;
@@ -209,14 +214,13 @@ ${rawText}
     }
 
     return NextResponse.json({
-  output: {
-    caption: parsed.caption,
-    cta: parsed.cta,
-    hashtags: normalizeHashtagsToString(parsed.hashtags),
-  },
-  meta: { model: r.model, keyIndex: r.keyIndex },
-});
-
+      output: {
+        caption: parsed.caption,
+        cta: parsed.cta,
+        hashtags: normalizeHashtagsToString(parsed.hashtags),
+      },
+      meta: { model: metaModel, keyIndex: metaKeyIndex },
+    });
   } catch (e: unknown) {
     console.error("Autofix route crash:", e);
     const msg = e instanceof Error ? e.message : String(e);
