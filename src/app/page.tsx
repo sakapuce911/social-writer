@@ -584,53 +584,58 @@ export default function Page() {
 
   // ✅ Auto-fix IA (IMPORTANT)
   const onAutoFix = async () => {
-    if (!result || !audit) {
-      showToast("Génère un post d’abord ✅");
-      return;
-    }
+  if (!result) return;
 
-    setError(null);
-    setLoading(true);
+  setError(null);
+  setLoading(true);
 
-    try {
-      const res = await fetch("/api/autofix", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject,
+  try {
+    const res = await fetch("/api/autofix", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject,
+        language,
+        current: {
           caption: result.caption,
           cta: result.cta,
           hashtags: result.hashtags,
-          audit,
-          language,
-        }),
-      });
+        },
+        audit, // on envoie les warnings + score à Gemini
+      }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(String(data?.error || "Auto-fix IA échoué"));
-      }
-
-      const nextCaption = String(data.caption ?? "").trim();
-      const nextCta = String(data.cta ?? "").trim();
-      const nextTags = Array.isArray(data.hashtags) ? data.hashtags.join(" ") : String(data.hashtags ?? "");
-
-      setResult({
-        caption: nextCaption,
-        cta: nextCta,
-        hashtags: normalizeHashtagsInput(nextTags),
-      });
-
-      showToast("Auto-fix IA appliqué ✨");
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg || "Erreur Auto-fix IA.");
-      showToast("Erreur Auto-fix IA");
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      const msg = String(data?.error || "Erreur Auto-fix");
+      throw new Error(msg);
     }
-  };
+
+    const out = data?.output;
+    if (!out?.caption && !out?.cta && !out?.hashtags) {
+      throw new Error("Auto-fix: réponse vide.");
+    }
+
+    setResult((prev) =>
+      prev
+        ? {
+            ...prev,
+            caption: String(out.caption ?? prev.caption),
+            cta: String(out.cta ?? prev.cta),
+            hashtags: String(out.hashtags ?? prev.hashtags),
+          }
+        : prev
+    );
+
+    showToast("Auto-fix IA appliqué ✅");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    setError(msg || "Erreur Auto-fix");
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (!mounted) return null;
 
@@ -877,7 +882,7 @@ export default function Page() {
                         <div style={{ fontWeight: 950 }}>Éditeur</div>
 
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                          <button className="btn" onClick={onAutoFix} disabled={loading || !audit} title="Auto-fix IA basé sur score + warnings">
+                          <button className="btn" onClick={onAutoFix} disabled={loading || !audit} title="Auto-fix IA">
                             Auto-fix IA ✨
                           </button>
 
