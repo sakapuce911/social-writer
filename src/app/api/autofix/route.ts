@@ -1,7 +1,8 @@
 // src/app/api/autofix/route.ts
 import { NextResponse } from "next/server";
+import { callLLM } from "@/lib/provider";
 
-export const runtime = "nodejs"; // important pour avoir process.env
+export const runtime = "nodejs"; // process.env OK
 export const dynamic = "force-dynamic";
 
 type Lang = "fr" | "en";
@@ -14,29 +15,28 @@ function safeJsonParse<T = any>(s: string): T | null {
   }
 }
 
-/** Extrait le texte Gemini de manière robuste (plusieurs formats possibles) */
-function extractGeminiText(data: any): string {
-  // Format le plus courant : candidates[0].content.parts[0].text
-  const t1 = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join("\n");
-  if (typeof t1 === "string" && t1.trim()) return t1.trim();
-
-  // Autre format possible : candidates[0].output / candidates[0].content.text
-  const t2 = data?.candidates?.[0]?.output;
-  if (typeof t2 === "string" && t2.trim()) return t2.trim();
-
-  const t3 = data?.candidates?.[0]?.content?.text;
-  if (typeof t3 === "string" && t3.trim()) return t3.trim();
-
-  // Rare : data.text
-  const t4 = data?.text;
-  if (typeof t4 === "string" && t4.trim()) return t4.trim();
-
-  return "";
-}
-
 function normalizeHashtagsToString(raw: unknown) {
   if (Array.isArray(raw)) return raw.join(" ").trim();
   return String(raw ?? "").trim();
+}
+
+/** Nettoie les ```json ... ``` si le modèle en met */
+function stripCodeFences(s: string) {
+  return (s ?? "")
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+}
+
+/** Essaie d'extraire le premier JSON objet { ... } dans un texte */
+function extractFirstJSONObject(text: string) {
+  const t = String(text ?? "");
+  const first = t.indexOf("{");
+  const last = t.lastIndexOf("}");
+  if (first !== -1 && last !== -1 && last > first) return t.slice(first, last + 1).trim();
+  return "";
 }
 
 function coerceOutput(rawText: string): { caption: string; cta: string; hashtags: string } | null {
@@ -104,7 +104,6 @@ function coerceOutput(rawText: string): { caption: string; cta: string; hashtags
   const cta = out.cta.join("\n").trim();
   const hashtags = out.hashtags.join(" ").replace(/\s+/g, " ").trim();
 
-  // si vraiment vide -> null
   if (!caption && !cta && !hashtags) return null;
 
   return { caption, cta, hashtags };
@@ -112,14 +111,6 @@ function coerceOutput(rawText: string): { caption: string; cta: string; hashtags
 
 export async function POST(req: Request) {
   try {
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: "GEMINI_API_KEY manquant. Ajoute-le dans .env.local et sur Vercel (Environment Variables)." },
-        { status: 500 }
-      );
-    }
-
     const body = await req.json().catch(() => null);
     if (!body) return NextResponse.json({ error: "Body JSON invalide." }, { status: 400 });
 
@@ -134,11 +125,12 @@ export async function POST(req: Request) {
 
     if (!subject) return NextResponse.json({ error: "Sujet manquant." }, { status: 400 });
 
-    // Prompt ultra explicite : on force JSON.
-    const sys = `Tu es un expert LinkedIn (2026). Tu corriges un post pour maximiser la conversation (engagement) ET respecter des contraintes.
-Tu dois sortir UNIQUEMENT un JSON strict (sans markdown, sans texte autour).`;
+    // Prompt ultra explicite : JSON strict
+    const prompt = `
+Tu es un expert LinkedIn (2026). Tu corriges un post pour maximiser la conversation (engagement) ET respecter des contraintes.
+Tu dois sortir UNIQUEMENT un JSON strict (sans markdown, sans texte autour).
 
-    const user = `Langue: ${language}
+Langue: ${language}
 Sujet: ${subject}
 
 Post actuel:
@@ -167,65 +159,59 @@ Sortie attendue (JSON strict):
   "caption": "...",
   "cta": "...",
   "hashtags": "#tag1 #tag2 #tag3"
-}`;
+}
+`.trim();
 
-    // Appel REST Gemini (compatible Next sans SDK)
-    const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
-      encodeURIComponent(GEMINI_API_KEY);
+    // ✅ Appel via provider (rotation clés + retry + fallback models)
+    const r = await callLLM(prompt, { temperature: 0.5, maxOutputTokens: 900 });
 
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: sys }] },
-        contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: {
-          temperature: 0.5,
-          maxOutputTokens: 900,
-        },
-      }),
-    });
+    let rawText = stripCodeFences(String(r.text ?? "")).trim();
 
-    const data = await resp.json().catch(() => null);
+    // 1) parse direct
+    let parsed = coerceOutput(rawText);
 
-    if (!resp.ok) {
-      // log utile serveur (vercel logs)
-      console.error("Gemini error status:", resp.status, data);
-      const msg = data?.error?.message ? String(data.error.message) : "Erreur Gemini";
-      return NextResponse.json({ error: msg }, { status: 500 });
+    // 2) si pas ok -> tente d’extraire un JSON embedded
+    if (!parsed) {
+      const embedded = extractFirstJSONObject(rawText);
+      if (embedded) parsed = coerceOutput(embedded);
     }
 
-    // log utile si structure surprenante
-    // (tu peux commenter après debug)
-    console.log("Gemini raw response:", JSON.stringify(data).slice(0, 4000));
+    // 3) si encore pas ok -> tentative de "repair" (demande au modèle de renvoyer uniquement JSON)
+    if (!parsed) {
+      const repairPrompt = `
+Tu dois répondre UNIQUEMENT avec un JSON strict, sans aucun autre texte.
+Voici un texte qui doit être converti en JSON au format:
+{
+  "caption": "...",
+  "cta": "...",
+  "hashtags": "#tag1 #tag2 #tag3"
+}
 
-    const rawText = extractGeminiText(data);
-    if (!rawText) {
-      return NextResponse.json(
-        {
-          error: "Réponse Gemini vide ou inattendue.",
-          debug: {
-            hasCandidates: Boolean(data?.candidates?.length),
-            topKeys: data ? Object.keys(data) : null,
-          },
-        },
-        { status: 500 }
-      );
+Texte:
+${rawText}
+`.trim();
+
+      const rr = await callLLM(repairPrompt, { temperature: 0.2, maxOutputTokens: 700 });
+      const repaired = stripCodeFences(String(rr.text ?? "")).trim();
+
+      parsed = coerceOutput(repaired) || coerceOutput(extractFirstJSONObject(repaired));
+      rawText = repaired || rawText;
     }
 
-    const parsed = coerceOutput(rawText);
     if (!parsed) {
       return NextResponse.json(
         {
-          error: "Gemini a répondu, mais le format est inexploitable (ni JSON ni sections).",
-          raw: rawText.slice(0, 2000),
+          error: "Réponse IA inexploitable (ni JSON ni sections).",
+          raw: rawText.slice(0, 2500),
         },
-        { status: 500 }
+        { status: 502 }
       );
     }
 
-    return NextResponse.json({ output: parsed, raw: rawText });
+    return NextResponse.json({
+      output: parsed,
+      meta: { model: r.model, keyIndex: r.keyIndex },
+    });
   } catch (e: unknown) {
     console.error("Autofix route crash:", e);
     const msg = e instanceof Error ? e.message : String(e);
