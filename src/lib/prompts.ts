@@ -1,282 +1,86 @@
-// src/app/api/generate/route.ts
+// src/lib/prompts.ts
 
-import { NextResponse } from "next/server";
-import { callLLM } from "@/lib/provider";
-import { captionPrompt, type Objective } from "@/lib/prompts";
+export type Objective = "vendre" | "attirer" | "éduquer" | "recruter" | "inspirer";
+export type Network = "linkedin";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+/**
+ * Prompt LinkedIn (cadre interne).
+ * IMPORTANT: l’API force une réponse JSON, donc ici pas de titres CAPTION/CTA/HASHTAGS.
+ */
+export const captionPrompt = (args: {
+  subject: string;
+  language: string;
+  objective: Objective;
+  network: Network;
+}) => {
+  const { subject, language, objective } = args;
 
-type Lang = "fr" | "en";
-type Network = "linkedin";
+  const objectiveCTA: Record<Objective, string[]> = {
+    vendre: [
+      "Si vous deviez choisir 1 critère non négociable avant d’acheter, ce serait lequel — et pourquoi ?",
+      "Quelle objection vous bloque le plus souvent avant de vous décider ? Donnez un exemple.",
+      "Qu’est-ce qui vous fait passer de “intéressant” à “je veux l’acheter” (sans promo) ?",
+    ],
+    attirer: [
+      "Selon vous, quelle est l’erreur la plus fréquente ici — avec un exemple concret ?",
+      "Qu’est-ce qui vous a le plus surpris récemment sur ce sujet — et pourquoi ?",
+      "Vous êtes plutôt “tester vite” ou “sécuriser avant d’agir” — et pourquoi ?",
+    ],
+    éduquer: [
+      "Quelle étape vous semble la plus difficile à appliquer, concrètement, dans votre contexte ?",
+      "Quelle règle vous a le plus aidé… ou le plus freiné ? Donnez un exemple.",
+      "Si vous deviez résumer la leçon en 1 phrase actionnable, ce serait quoi ?",
+    ],
+    recruter: [
+      "Quand vous recrutez, quel signal vous donne le plus confiance (exemple concret) ?",
+      "Côté candidat, qu’est-ce qui fait vraiment la différence dans votre secteur ?",
+      "Quelle compétence est sous-estimée aujourd’hui — et pourquoi ?",
+    ],
+    inspirer: [
+      "Quel déclic concret a changé votre manière d’agir — et qu’est-ce que vous avez fait dès le lendemain ?",
+      "Quel choix discret (mais difficile) vous a le plus fait grandir — et pourquoi ?",
+      "Quelle action simple faites-vous aujourd’hui que votre “vous d’avant” n’aurait jamais faite ? Pourquoi ?",
+    ],
+  };
 
-function safeLang(input: unknown): Lang {
-  const v = String(input ?? "").trim().toLowerCase();
-  return v === "en" ? "en" : "fr";
-}
+  const ctaSuggestion = (objectiveCTA[objective] ?? objectiveCTA.attirer)[0];
 
-function safeObjective(input: unknown): Objective {
-  const v = String(input ?? "").trim().toLowerCase();
-  if (v === "vendre") return "vendre";
-  if (v === "attirer") return "attirer";
-  if (v === "recruter") return "recruter";
-  if (v === "inspirer") return "inspirer";
-  if (v === "éduquer" || v === "eduquer") return "éduquer";
-  return "attirer";
-}
+  return `
+Tu es un expert en copywriting LinkedIn (règles internes).
 
-function stripCodeFences(s: string) {
-  return (s ?? "")
-    .trim()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-}
+CONTRAINTES:
+- Langue: ${language}
+- Sujet: """${subject}"""
+- Objectif: ${objective}
+- Réseau: linkedin
+- Interdit: liens/URL, promo agressive, CTA artificiels (“like si…”, “commente GO”, “DM OFFRE”).
+- Interdit: mentionner “2026”, “algorithme 2026”, “LinkedIn en 2026” (sauf si le sujet l’exige explicitement).
 
-function extractFirstJSONObject(text: string) {
-  const t = String(text ?? "");
-  const first = t.indexOf("{");
-  const last = t.lastIndexOf("}");
-  if (first !== -1 && last !== -1 && last > first) return t.slice(first, last + 1).trim();
-  return "";
-}
+STRUCTURE OBLIGATOIRE:
+1) Hook (1–2 lignes) : commence par “Vous”, vise 150–180 caractères, tension cognitive + promesse claire.
+2) Contexte réel : mini-situation vécue / observation terrain / test (même simple).
+3) Insight + mini-framework (3–5 points MAX) : points concrets, actionnables, pas génériques.
+4) Question finale ouverte (finir par “?”) : réponse développée (>10 mots).
+5) Hashtags : 3–5 max, niche, tout en bas.
 
-function safeJsonParse<T = any>(s: string): T | null {
-  try {
-    return JSON.parse(s) as T;
-  } catch {
-    return null;
-  }
-}
+LONGUEUR:
+- Vise ~900 à 1 300 caractères.
+- Texte aéré: paragraphes 1–2 lignes, retours à la ligne fréquents.
 
-function normalizeHashtags(h: unknown): string[] {
-  if (Array.isArray(h)) {
-    const clean = h
-      .map((x) => String(x ?? "").trim())
-      .filter(Boolean)
-      .map((t) => (t.startsWith("#") ? t : `#${t}`))
-      .map((t) => t.replace(/\s+/g, "").trim())
-      .filter((t) => /^#[\p{L}\p{N}_]+$/u.test(t));
-    return Array.from(new Set(clean)).slice(0, 5);
-  }
+AUTO-CONTRÔLE (sans le dire):
+- Une seule idée centrale (angle précis)
+- Contexte réel présent
+- Framework 3–5 points présent
+- Question finale ouverte
+- 3–5 hashtags max
+Si une règle échoue: régénère.
 
-  const raw = String(h ?? "").trim();
-  if (!raw) return [];
-  const found = raw.match(/#[\p{L}\p{N}_]+/gu) ?? [];
-  return Array.from(new Set(found)).slice(0, 5);
-}
+IMPORTANT FORMAT:
+- Ne mets pas de titres "CAPTION/CTA/HASHTAGS".
+- Donne uniquement le texte final du post + les hashtags à la fin.
+- Aucun commentaire meta.
 
-function isValidLLMJson(text: string): boolean {
-  const obj = safeJsonParse<any>(text);
-  if (!obj) return false;
-  const captionOk = typeof obj?.caption === "string" && String(obj.caption).trim().length > 0;
-  const ctaOk = typeof obj?.cta === "string" && String(obj.cta).trim().length > 0;
-  const hashtagsOk = Array.isArray(obj?.hashtags) || typeof obj?.hashtags === "string";
-  return Boolean(captionOk && ctaOk && hashtagsOk);
-}
-
-function clean(obj: any) {
-  let caption = String(obj?.caption ?? "").trim();
-  let cta = String(obj?.cta ?? "").trim();
-  const hashtags = normalizeHashtags(obj?.hashtags);
-
-  // sécurité anti-"2026"
-  caption = caption.replace(/\b2026\b/g, "").replace(/\s{2,}/g, " ").trim();
-
-  return { caption, cta, hashtags };
-}
-
-function firstNonEmptyLine(text: string) {
-  return (text.split("\n").find((l) => l.trim().length > 0) ?? "").trim();
-}
-
-function scoreCompliance(caption: string, cta: string, hashtags: string[]) {
-  const hook = firstNonEmptyLine(caption);
-  const hookLen = hook.length;
-
-  const hasBullets = /(^|\n)\s*[-•–]\s+/.test(caption);
-  const lines = caption.split("\n").map((l) => l.trim()).filter(Boolean);
-  const len = caption.length;
-
-  const ctaOk = cta.trim().endsWith("?") || caption.trim().endsWith("?");
-  const hashtagsOk = hashtags.length >= 3 && hashtags.length <= 5;
-
-  // on vise “parfait” -> critères stricts
-  const ok =
-    hook.startsWith("Vous") &&
-    hookLen >= 150 &&
-    hookLen <= 180 &&
-    len >= 850 &&
-    len <= 1400 &&
-    hasBullets &&
-    lines.length >= 7 &&
-    ctaOk &&
-    hashtagsOk &&
-    !/\b2026\b/.test(caption);
-
-  return { ok, hookLen, len, hasBullets, linesCount: lines.length, ctaOk, hashtagsOk };
-}
-
-/** Cache 6h (par instance) */
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const cache = new Map<string, { until: number; payload: any }>();
-
-function cacheKey(subject: string, lang: Lang, objective: Objective) {
-  return `${lang}|${objective}|${subject}`.toLowerCase();
-}
-
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-
-    const subject = String(body?.subject ?? "").trim();
-    if (!subject) return NextResponse.json({ error: "Le sujet est obligatoire." }, { status: 400 });
-
-    const lang = safeLang(body?.language);
-    const objective = safeObjective(body?.objective);
-    const network: Network = "linkedin";
-
-    // ✅ cache anti-gaspillage
-    const key = cacheKey(subject, lang, objective);
-    const hit = cache.get(key);
-    if (hit && hit.until > Date.now()) {
-      return NextResponse.json({ output: JSON.stringify(hit.payload) });
-    } else if (hit) {
-      cache.delete(key);
-    }
-
-    const basePrompt = captionPrompt({
-      subject,
-      language: lang === "en" ? "English" : "French",
-      objective,
-      network,
-    });
-
-    const jsonPrompt = `
-${basePrompt}
-
-IMPORTANT (FORMAT DE SORTIE):
-- Réponds UNIQUEMENT avec un JSON valide (pas de markdown, pas de texte autour).
-- Utilise des guillemets doubles ASCII (") uniquement.
-- Structure EXACTE:
-{
-  "caption": "string",
-  "cta": "string",
-  "hashtags": ["#tag1", "#tag2", "#tag3"]
-}
-
-RAPPEL:
-- Interdit de mentionner "2026" sauf si le sujet l'exige.
-- Hook (1ère ligne) 150–180 caractères, commence par "Vous".
-- Longueur caption ~900–1300 caractères.
-- Framework (3–5 points) obligatoire.
+QUESTION FINALE (exemple à adapter au sujet):
+${ctaSuggestion}
 `.trim();
-
-    // 1) appel principal (force JSON côté Gemini)
-    const r = await callLLM(jsonPrompt, {
-      temperature: 0.25,
-      maxOutputTokens: 1100,
-      responseMimeType: "application/json",
-    });
-
-    let raw = stripCodeFences(String((r as any)?.text ?? "")).trim();
-    let candidate = raw;
-
-    if (!isValidLLMJson(candidate)) {
-      const embedded = extractFirstJSONObject(candidate);
-      if (embedded) candidate = embedded;
-    }
-
-    // si JSON invalide -> 2) repair UNIQUE (1 seul retry max)
-    if (!isValidLLMJson(candidate)) {
-      const repairPrompt = `
-Tu dois répondre UNIQUEMENT avec un JSON strict valide (aucun texte autour).
-Format:
-{"caption":"...","cta":"...","hashtags":["#a","#b","#c"]}
-
-Règles:
-- caption non vide ~900–1300 caractères
-- 1ère ligne commence par "Vous" et fait 150–180 caractères
-- framework 3–5 points obligatoire
-- question ouverte finale (cta finit par "?")
-- 3–5 hashtags niche
-- interdit de mentionner "2026" (sauf si le sujet l'exige)
-
-Sujet: ${subject}
-Texte brut à réparer:
-${raw}
-`.trim();
-
-      const rr = await callLLM(repairPrompt, {
-        temperature: 0.1,
-        maxOutputTokens: 1100,
-        responseMimeType: "application/json",
-      });
-
-      const repaired = stripCodeFences(String((rr as any)?.text ?? "")).trim();
-      const embedded2 = extractFirstJSONObject(repaired);
-      candidate = embedded2 || repaired;
-
-      if (!isValidLLMJson(candidate)) {
-        return NextResponse.json(
-          { error: "Le modèle n'a pas renvoyé un JSON valide.", raw: raw.slice(0, 2000) },
-          { status: 502 }
-        );
-      }
-    }
-
-    let out = clean(safeJsonParse(candidate));
-    const check1 = scoreCompliance(out.caption, out.cta, out.hashtags);
-
-    // 3) si pas conforme -> 1 seul appel FIX (max) pour atteindre “parfait”
-    if (!check1.ok) {
-      const fixPrompt = `
-Tu dois AMÉLIORER ce post pour respecter STRICTEMENT les contraintes, sans changer le sujet.
-Tu réponds UNIQUEMENT en JSON strict au format:
-{"caption":"...","cta":"...","hashtags":["#a","#b","#c"]}
-
-Contraintes strictes:
-- Hook (1ère ligne): commence par "Vous" et fait 150–180 caractères EXACT.
-- Caption: 900–1300 caractères.
-- Contexte réel présent (preuve humaine).
-- Framework 3–5 points (liste avec - ou •).
-- Question finale ouverte (cta finit par "?") qui force une réponse développée.
-- 3–5 hashtags niche.
-- Interdit de mentionner "2026" sauf si le sujet l'exige.
-
-Sujet: ${subject}
-
-Post actuel:
-${out.caption}
-
-CTA actuel:
-${out.cta}
-
-Hashtags actuels:
-${out.hashtags.join(" ")}
-`.trim();
-
-      const fr = await callLLM(fixPrompt, {
-        temperature: 0.15,
-        maxOutputTokens: 1100,
-        responseMimeType: "application/json",
-      });
-
-      const fixed = stripCodeFences(String((fr as any)?.text ?? "")).trim();
-      const embedded3 = extractFirstJSONObject(fixed);
-      const cand2 = embedded3 || fixed;
-
-      if (isValidLLMJson(cand2)) {
-        out = clean(safeJsonParse(cand2));
-      }
-    }
-
-    // cache anti-gaspillage (même sujet -> 0 appel)
-    cache.set(key, { until: Date.now() + CACHE_TTL_MS, payload: out });
-
-    return NextResponse.json({ output: JSON.stringify(out) });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Erreur inconnue" }, { status: 500 });
-  }
-}
+};
