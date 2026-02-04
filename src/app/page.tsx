@@ -856,7 +856,7 @@ export default function Page() {
                       <div style={{ marginTop: 12 }}>
                         <div className="subTitle">Aperçu LinkedIn</div>
                         <div className="previewWrap">
-                          <LinkedInPreview variant={isMobilePreview ? "mobile" : "default"} caption={result.caption} cta={result.cta} hashtags={result.hashtags} />
+                          <LinkedInPreview variant={isMobilePreview ? "mobile" : "desktop"} caption={result.caption} cta={result.cta} hashtags={result.hashtags} />
                         </div>
                       </div>
 
