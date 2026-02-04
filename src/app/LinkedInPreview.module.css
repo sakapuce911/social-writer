@@ -1,24 +1,37 @@
+/* src/app/LinkedInPreview.module.css */
+
+/* Wrapper autour de la carte (intégré dans UI sombre) */
 .liFeed{
   width: 100%;
-  /* Fond "LinkedIn" autour de la carte */
-  background: #f3f2ef;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+/* ✅ Variant Mobile (wrapper plus compact) */
+.liFeedMobile{
+  padding: 10px;
   border-radius: 14px;
-  padding: 14px;
 }
 
 /* Carte post */
-.liCard {
+.liCard{
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: #ffffff;
-  /* Ombre plus "LinkedIn" */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(17,17,17,0.72);
+  box-shadow: 0 12px 34px rgba(0,0,0,0.35);
   overflow: hidden;
 }
 
+/* ✅ Variant Mobile (carte plus compacte, “phone-like”) */
+.liCardMobile{
+  border-radius: 12px;
+}
+
 /* Header */
-.liHeader {
+.liHeader{
   display: grid;
   grid-template-columns: 44px 1fr 36px;
   gap: 12px;
@@ -26,185 +39,203 @@
   align-items: start;
 }
 
-.liAvatar {
+.liAvatar{
   width: 44px;
   height: 44px;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  color: rgba(17, 17, 17, 0.88);
-  background: linear-gradient(180deg, rgba(10, 102, 194, 0.16), rgba(255, 255, 255, 0.92));
-  border: 1px solid rgba(0, 0, 0, 0.10);
+  font-weight: 850;
+  color: rgba(255,255,255,0.92);
+  background: linear-gradient(180deg, rgba(10,102,194,0.35), rgba(255,255,255,0.06));
+  border: 1px solid rgba(255,255,255,0.16);
 }
 
-.liHeaderMeta {
-  min-width: 0;
-}
+.liHeaderMeta{ min-width: 0; }
 
-.liNameRow {
+.liNameRow{
   display: flex;
   align-items: center;
   gap: 8px;
   line-height: 1.15;
 }
 
-.liName {
-  font-weight: 700;
+.liName{
+  font-weight: 750;
   font-size: 14px;
-  color: rgba(17, 17, 17, 0.92);
+  color: rgba(255,255,255,0.92);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.liFollow {
+.liFollow{
   border: 0;
   background: transparent;
-  color: rgba(10, 102, 194, 0.98);
-  font-weight: 700;
+  color: rgba(10,102,194,0.98);
+  font-weight: 750;
   font-size: 13px;
   padding: 0;
   cursor: pointer;
 }
+.liFollow:hover{ text-decoration: underline; }
 
-.liHeadline {
+.liHeadline{
   margin-top: 2px;
   font-size: 12px;
-  color: rgba(17, 17, 17, 0.68);
+  color: rgba(255,255,255,0.62);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.liSubRow {
+.liSubRow{
   margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: rgba(17, 17, 17, 0.60);
+  color: rgba(255,255,255,0.56);
 }
 
-.liAudience {
+.liAudience{
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.liMore {
+.liMore{
   width: 36px;
   height: 36px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.10);
-  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
   display: grid;
   place-items: center;
   cursor: pointer;
-}
 
-.liMore:hover {
-  background: rgba(0, 0, 0, 0.04);
+  /* ✅ micro animation */
+  transition: transform 120ms ease, background 140ms ease, border-color 140ms ease;
+  will-change: transform;
+}
+.liMore:hover{
+  background: rgba(255,255,255,0.10);
+  transform: translateY(-1px);
+}
+.liMore:active{
+  transform: translateY(0px) scale(0.98);
 }
 
 /* Body */
-.liBody {
+.liBody{
   padding: 2px 14px 12px 14px;
 }
 
-.liText {
+.liText{
   font-size: 14px;
-  line-height: 1.38;
-  color: rgba(17, 17, 17, 0.92);
-  font-weight: 500;
+  line-height: 1.42;
+  color: rgba(255,255,255,0.90);
+  font-weight: 520;
 }
 
-.liLine {
+.liLine{
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 /* hashtags */
-.hashtag {
-  color: rgba(10, 102, 194, 0.98);
-  font-weight: 650;
+.hashtag{
+  color: rgba(98, 181, 255, 0.98);
+  font-weight: 700;
 }
 
-.liSeeMoreInline {
+.liSeeMoreInline{
   margin-top: 6px;
   border: 0;
   background: transparent;
-  color: rgba(10, 102, 194, 0.98);
-  font-weight: 650;
+  color: rgba(98, 181, 255, 0.98);
+  font-weight: 700;
   cursor: pointer;
   padding: 0;
+
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.liSeeMoreInline:hover{
+  opacity: 0.92;
+  transform: translateY(-0.5px);
+}
+.liSeeMoreInline:active{
+  transform: translateY(0px);
 }
 
-.liHint {
+.liHint{
   margin-top: 8px;
   font-size: 12px;
-  color: rgba(17, 17, 17, 0.55);
-  font-weight: 600;
+  color: rgba(255,255,255,0.52);
+  font-weight: 650;
 }
 
 /* Reactions */
-.liReactions {
+.liReactions{
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid rgba(255,255,255,0.10);
+  border-bottom: 1px solid rgba(255,255,255,0.10);
   font-size: 12px;
-  color: rgba(17, 17, 17, 0.62);
+  color: rgba(255,255,255,0.58);
 }
 
-.liReactionsLeft {
+.liReactionsLeft{
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-.liBadges {
+.liBadges{
   display: inline-flex;
   align-items: center;
 }
 
-.liBadge {
+.liBadge{
   width: 18px;
   height: 18px;
   border-radius: 999px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid rgba(0, 0, 0, 0.10);
-  background: #ffffff;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
   margin-right: -6px;
+
+  /* ✅ léger lift */
+  transition: transform 140ms ease;
+}
+.liBadges:hover .liBadge{
+  transform: translateY(-1px);
 }
 
-.liCount {
-  font-weight: 650;
-}
+.liCount{ font-weight: 700; }
 
-.liReactionsRight {
+.liReactionsRight{
   display: inline-flex;
   align-items: center;
   gap: 8px;
   white-space: nowrap;
 }
 
-.liDot {
-  opacity: 0.65;
-}
+.liDot{ opacity: 0.65; }
 
 /* Actions */
-.liActions {
+.liActions{
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   padding: 6px 10px 10px 10px;
 }
 
-.liActionBtn {
+/* ✅ micro-animations “LinkedIn-like” */
+.liActionBtn{
   border: 0;
   background: transparent;
   border-radius: 10px;
@@ -214,26 +245,51 @@
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  color: rgba(17, 17, 17, 0.72);
+  color: rgba(255,255,255,0.70);
   font-weight: 650;
   font-size: 13px;
+
+  transition:
+    background 140ms ease,
+    transform 120ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+  will-change: transform;
+}
+.liActionBtn:hover{
+  background: rgba(255,255,255,0.08);
+  transform: translateY(-1px);
+}
+.liActionBtn:active{
+  transform: translateY(0px) scale(0.98);
+  background: rgba(255,255,255,0.10);
 }
 
-.liActionBtn:hover {
-  background: rgba(0, 0, 0, 0.04);
+/* focus accessible */
+.liActionBtn:focus-visible{
+  outline: 2px solid rgba(98, 181, 255, 0.65);
+  outline-offset: 2px;
 }
 
-.liActionIcon {
+.liActionIcon{
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.liActionLabel {
-  transform: translateY(0.5px);
+.liActionLabel{ transform: translateY(0.5px); }
+
+/* ✅ réduction visuelle en variant mobile */
+.liCardMobile .liActions{
+  gap: 4px;
+  padding: 6px 8px 10px 8px;
+}
+.liCardMobile .liActionBtn{
+  padding: 9px 6px;
+  font-size: 12.5px;
 }
 
-/* ✅ Comment bar (look LinkedIn) */
+/* Comment bar */
 .liCommentBar{
   padding: 10px 14px 14px 14px;
   display: flex;
@@ -247,40 +303,47 @@
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-weight: 750;
-  color: rgba(17, 17, 17, 0.86);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(243,242,239,0.9);
+  font-weight: 800;
+  color: rgba(255,255,255,0.86);
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
 }
 
 .liCommentInput{
   flex: 1;
   border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255,255,255,0.14);
   padding: 10px 12px;
   font-size: 13px;
-  color: rgba(17, 17, 17, 0.62);
-  background: rgba(243,242,239,0.55);
+  color: rgba(255,255,255,0.58);
+  background: rgba(255,255,255,0.05);
+}
+
+/* ✅ input plus compact en mobile variant */
+.liCardMobile .liCommentBar{
+  padding: 10px 12px 12px 12px;
+}
+.liCardMobile .liCommentInput{
+  padding: 9px 12px;
+  font-size: 12.5px;
 }
 
 /* Icons */
-.liIcon {
-  opacity: 0.88;
-}
+.liIcon{ opacity: 0.88; }
 
 /* Mobile */
-@media (max-width: 520px) {
+@media (max-width: 520px){
   .liFeed{ padding: 10px; }
 
-  .liActions {
+  .liActions{
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .liHeader {
+  .liHeader{
     grid-template-columns: 40px 1fr 36px;
   }
 
-  .liAvatar {
+  .liAvatar{
     width: 40px;
     height: 40px;
   }

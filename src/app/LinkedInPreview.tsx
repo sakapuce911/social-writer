@@ -1,18 +1,24 @@
+// src/app/LinkedInPreview.tsx
 "use client";
 
 import { useMemo, useState } from "react";
 import styles from "./LinkedInPreview.module.css";
+
+type Variant = "desktop" | "mobile";
 
 type Props = {
   caption: string;
   cta: string;
   hashtags: string;
 
-  // Options (tu peux les laisser par défaut)
+  // Options
   authorName?: string;
   authorHeadline?: string;
   timeLabel?: string; // ex: "1 j"
   audienceLabel?: string; // ex: "Public"
+
+  // ✅ Nouveau: rendu plus compact façon mobile LinkedIn
+  variant?: Variant;
 };
 
 function extractHashtags(text: string) {
@@ -20,7 +26,6 @@ function extractHashtags(text: string) {
 }
 
 function tokenizeHashtags(line: string) {
-  // Stylise les #hashtags sans casser les espaces
   const parts = line.split(/(\s+)/g);
   return parts.map((p, i) => {
     if (/^#[\p{L}\p{N}_]+$/u.test(p)) {
@@ -41,6 +46,62 @@ function clampByChars(text: string, limit: number) {
   return { clamped: t.slice(0, limit).trimEnd(), isClamped: true };
 }
 
+/** ✅ petit hash stable (pas crypto, juste pour stabiliser l’UI) */
+function stableHash(input: string) {
+  let h = 2166136261; // FNV-ish
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // force positif
+  return (h >>> 0) || 1;
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+/** ✅ format like LinkedIn: 999, 1,2k, 12k, 1,1M */
+function formatCount(n: number) {
+  if (n < 1000) return String(n);
+  if (n < 10000) return `${(n / 1000).toFixed(1).replace(".", ",")}k`;
+  if (n < 1000000) return `${Math.round(n / 1000)}k`;
+  return `${(n / 1000000).toFixed(1).replace(".", ",")}M`;
+}
+
+/** ✅ stats “LinkedIn-like” : likes > comments > reposts */
+function computeRealisticStats(fullText: string) {
+  const text = (fullText ?? "").trim();
+  const len = text.length;
+  const lines = text.split("\n").filter(Boolean).length;
+
+  const hash = stableHash(text);
+
+  // score de "qualité" simple: longueur + structure
+  const structureBoost = clamp(lines, 1, 10) / 10; // 0.1..1
+  const lengthBoost = clamp(len / 800, 0.2, 1.4); // 0.2..1.4
+
+  // base likes (plutôt 80..1800)
+  const baseLikes = 80 + (hash % 920); // 80..999
+  const boostedLikes = Math.round(baseLikes * (0.85 + structureBoost) * lengthBoost);
+
+  // commentaires: 3%..11% des likes
+  const cRatio = 0.03 + ((hash >>> 3) % 9) / 100; // 0.03..0.11
+  const comments = Math.max(0, Math.round(boostedLikes * cRatio));
+
+  // reposts: 0.6%..3.2% des likes (et <= commentaires)
+  const rRatio = 0.006 + ((hash >>> 7) % 27) / 1000; // 0.006..0.033
+  let reposts = Math.round(boostedLikes * rRatio);
+  reposts = Math.min(reposts, Math.max(0, Math.round(comments * 0.7)));
+
+  // bornes “réalistes”
+  const likes = clamp(boostedLikes, 12, 32000);
+  const cmts = clamp(comments, 0, Math.max(3, Math.round(likes * 0.2)));
+  const reps = clamp(reposts, 0, Math.max(1, Math.round(cmts * 0.8)));
+
+  return { likes, comments: cmts, reposts: reps };
+}
+
 export default function LinkedInPreview({
   caption,
   cta,
@@ -49,6 +110,7 @@ export default function LinkedInPreview({
   authorHeadline = "Créateur • SocialWriter",
   timeLabel = "1 j",
   audienceLabel = "Public",
+  variant = "desktop",
 }: Props) {
   const [expanded, setExpanded] = useState(false);
 
@@ -57,23 +119,24 @@ export default function LinkedInPreview({
     return parts.join("\n\n").trim();
   }, [caption, cta, hashtags]);
 
-  // Approx LinkedIn: “voir plus” assez tôt
-  const { clamped, isClamped } = useMemo(() => clampByChars(fullText, 360), [fullText]);
+  // ✅ Mobile = clamp un peu plus tôt
+  const clampLimit = variant === "mobile" ? 260 : 360;
+
+  const { clamped, isClamped } = useMemo(() => clampByChars(fullText, clampLimit), [fullText, clampLimit]);
   const textToShow = expanded || !isClamped ? fullText : `${clamped}…`;
 
   const hashCount = useMemo(() => extractHashtags(hashtags).length, [hashtags]);
 
-  // Mini compteurs “stables” juste pour le look (pas random à chaque render)
-  const stats = useMemo(() => {
-    const base = Math.min(999, Math.max(12, (fullText.length * 7) % 280));
-    const comments = Math.min(120, Math.max(1, (fullText.length * 3) % 41));
-    const reposts = Math.min(60, Math.max(0, (fullText.length * 5) % 19));
-    return { likes: base, comments, reposts };
-  }, [fullText]);
+  // ✅ Compteurs plus “LinkedIn-like”
+  const stats = useMemo(() => computeRealisticStats(fullText), [fullText]);
+
+  // ✅ Classes variant (sans casser ton CSS: on ajoutera les classes dans module.css après)
+  const feedClass = [styles.liFeed, variant === "mobile" ? styles.liFeedMobile : ""].join(" ").trim();
+  const cardClass = [styles.liCard, variant === "mobile" ? styles.liCardMobile : ""].join(" ").trim();
 
   return (
-    <div className={styles.liFeed} aria-label="Aperçu LinkedIn">
-      <div className={styles.liCard} aria-label="Post LinkedIn">
+    <div className={feedClass} aria-label="Aperçu LinkedIn">
+      <div className={cardClass} aria-label="Post LinkedIn">
         {/* Header */}
         <div className={styles.liHeader}>
           <div className={styles.liAvatar} aria-hidden="true">
@@ -116,14 +179,12 @@ export default function LinkedInPreview({
             ))}
           </div>
 
-          {/* LinkedIn: bouton "voir plus" bleu, inline */}
           {isClamped && !expanded && (
             <button className={styles.liSeeMoreInline} type="button" onClick={() => setExpanded(true)}>
               … voir plus
             </button>
           )}
 
-          {/* Micro hint hashtags (optionnel, tu peux enlever si tu veux un 100% LinkedIn) */}
           {hashCount > 0 && <div className={styles.liHint}>Hashtags détectés : {hashCount}</div>}
         </div>
 
@@ -135,13 +196,17 @@ export default function LinkedInPreview({
               <span className={styles.liBadge}>❤️</span>
               <span className={styles.liBadge}>👏</span>
             </span>
-            <span className={styles.liCount}>{stats.likes}</span>
+            <span className={styles.liCount}>{formatCount(stats.likes)}</span>
           </div>
 
           <div className={styles.liReactionsRight}>
-            <span>{stats.comments} commentaires</span>
+            <span>
+              {formatCount(stats.comments)} {stats.comments <= 1 ? "commentaire" : "commentaires"}
+            </span>
             <span className={styles.liDot}>•</span>
-            <span>{stats.reposts} republications</span>
+            <span>
+              {formatCount(stats.reposts)} {stats.reposts <= 1 ? "republication" : "republications"}
+            </span>
           </div>
         </div>
 
@@ -153,7 +218,7 @@ export default function LinkedInPreview({
           <ActionBtn icon={<SendIcon />} label="Envoyer" />
         </div>
 
-        {/* ✅ Bonus: zone commentaire (visuelle) */}
+        {/* Comment bar (visuelle) */}
         <div className={styles.liCommentBar} aria-hidden="true">
           <div className={styles.liCommentAvatar}>{authorName.slice(0, 1).toUpperCase()}</div>
           <div className={styles.liCommentInput}>Ajouter un commentaire…</div>
@@ -174,7 +239,7 @@ function ActionBtn({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
-/* ====== Icons ====== */
+/* ===== Icons ===== */
 
 function GlobeIcon() {
   return (
@@ -190,10 +255,7 @@ function GlobeIcon() {
 function MoreIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className={styles.liIcon}>
-      <path
-        fill="currentColor"
-        d="M12 7a2 2 0 1 1 0-4a2 2 0 0 1 0 4Zm0 7a2 2 0 1 1 0-4a2 2 0 0 1 0 4Zm0 7a2 2 0 1 1 0-4a2 2 0 0 1 0 4Z"
-      />
+      <path fill="currentColor" d="M12 7a2 2 0 1 1 0-4a2 2 0 0 1 0 4Zm0 7a2 2 0 1 1 0-4a2 2 0 0 1 0 4Zm0 7a2 2 0 1 1 0-4a2 2 0 0 1 0 4Z" />
     </svg>
   );
 }
@@ -212,10 +274,7 @@ function LikeIcon() {
 function CommentIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className={styles.liIcon}>
-      <path
-        fill="currentColor"
-        d="M21 6h-18c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h4v3l4-3h10c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2Z"
-      />
+      <path fill="currentColor" d="M21 6h-18c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h4v3l4-3h10c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2Z" />
     </svg>
   );
 }
@@ -223,10 +282,7 @@ function CommentIcon() {
 function RepostIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className={styles.liIcon}>
-      <path
-        fill="currentColor"
-        d="M7 7h11l-2-2l1.4-1.4L22.8 9l-5.4 5.4L16 13l2-2H7V7Zm10 10H6l2 2L6.6 20.4L1.2 15l5.4-5.4L8 11l-2 2h11v4Z"
-      />
+      <path fill="currentColor" d="M7 7h11l-2-2l1.4-1.4L22.8 9l-5.4 5.4L16 13l2-2H7V7Zm10 10H6l2 2L6.6 20.4L1.2 15l5.4-5.4L8 11l-2 2h11v4Z" />
     </svg>
   );
 }

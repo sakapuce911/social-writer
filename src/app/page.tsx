@@ -100,10 +100,10 @@ function normalizeFromLLM(raw: string): { caption: string; cta: string; hashtags
 }
 
 function scoreBadge(score: number) {
-  if (score >= 85) return { label: "Excellent", bg: "rgba(143,227,214,0.22)", bd: "rgba(143,227,214,0.35)" };
-  if (score >= 70) return { label: "Bon", bg: "rgba(255,216,106,0.22)", bd: "rgba(255,216,106,0.35)" };
-  if (score >= 50) return { label: "Moyen", bg: "rgba(255,176,102,0.20)", bd: "rgba(255,176,102,0.32)" };
-  return { label: "À améliorer", bg: "rgba(255,77,109,0.16)", bd: "rgba(255,77,109,0.28)" };
+  if (score >= 85) return { label: "Excellent", tone: "ok" as const };
+  if (score >= 70) return { label: "Bon", tone: "warn" as const };
+  if (score >= 50) return { label: "Moyen", tone: "warn" as const };
+  return { label: "À améliorer", tone: "bad" as const };
 }
 
 /** ✅ Helpers audit LinkedIn 2026 */
@@ -116,14 +116,12 @@ function splitParagraphs(text: string) {
 function getHook(caption: string) {
   const t = (caption ?? "").trim();
   if (!t) return "";
-  // Hook = 1ère ligne non vide
   const firstLine = t.split("\n").map((s) => s.trim()).find(Boolean) ?? "";
   return firstLine.trim();
 }
 
 function extractHashtags(raw: string) {
   const tags = (raw ?? "").match(/#[\p{L}\p{N}_]+/gu) ?? [];
-  // unique
   const seen = new Set<string>();
   const out: string[] = [];
   for (const t of tags) {
@@ -242,86 +240,28 @@ function computeLinkedInAudit(args: { subject: string; caption: string; cta: str
   return { score, checks, details, warnings };
 }
 
-/** ✅ Gros SVG hero inline */
-function HeroCartoonSVG() {
+function StatCard({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <svg viewBox="0 0 980 720" width="100%" height="100%" role="img" aria-label="Illustration SocialWriter">
-      <defs>
-        <linearGradient id="swBg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="rgba(124,92,255,0.18)" />
-          <stop offset="0.55" stopColor="rgba(255,77,109,0.14)" />
-          <stop offset="1" stopColor="rgba(255,176,102,0.16)" />
-        </linearGradient>
+    <div className="statCard">
+      <div className="statCard__label">{label}</div>
+      <div className="statCard__value">{value}</div>
+      <div className="statCard__hint">{hint}</div>
+    </div>
+  );
+}
 
-        <linearGradient id="swCard" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="rgba(255,255,255,0.92)" />
-          <stop offset="1" stopColor="rgba(255,255,255,0.72)" />
-        </linearGradient>
-
-        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="10" stdDeviation="8" floodColor="rgba(17,17,17,0.18)" />
-        </filter>
-
-        <filter id="hardShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="18" stdDeviation="0" floodColor="rgba(17,17,17,0.10)" />
-        </filter>
-      </defs>
-
-      <rect x="0" y="0" width="980" height="720" rx="34" fill="url(#swBg)" />
-
-      <g filter="url(#hardShadow)">
-        <rect x="90" y="80" width="800" height="540" rx="36" fill="url(#swCard)" stroke="rgba(17,17,17,0.20)" strokeWidth="6" />
-      </g>
-
-      <g>
-        <rect x="130" y="120" width="720" height="64" rx="22" fill="rgba(255,255,255,0.80)" stroke="rgba(17,17,17,0.14)" strokeWidth="4" />
-        <circle cx="170" cy="152" r="10" fill="rgba(255,77,109,0.80)" />
-        <circle cx="205" cy="152" r="10" fill="rgba(255,176,102,0.85)" />
-        <circle cx="240" cy="152" r="10" fill="rgba(124,92,255,0.75)" />
-
-        <g transform="translate(610 132)">
-          <rect x="0" y="0" width="220" height="40" rx="999" fill="rgba(255,255,255,0.88)" stroke="rgba(17,17,17,0.12)" strokeWidth="4" />
-          <text x="110" y="26" textAnchor="middle" fontSize="16" fontWeight="900" fill="rgba(17,17,17,0.78)">
-            Fun mode ON ✨
-          </text>
-        </g>
-      </g>
-
-      <g filter="url(#softShadow)">
-        <g transform="translate(150 220)">
-          <rect x="0" y="0" width="260" height="150" rx="26" fill="rgba(255,255,255,0.92)" stroke="rgba(17,17,17,0.14)" strokeWidth="4" />
-          <text x="22" y="44" fontSize="18" fontWeight="950" fill="rgba(17,17,17,0.86)">
-            Hook
-          </text>
-          <text x="22" y="78" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">
-            “3 erreurs qui ruinent
-          </text>
-          <text x="22" y="102" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">
-            ta productivité…”
-          </text>
-        </g>
-
-        <g transform="translate(430 250)">
-          <rect x="0" y="0" width="380" height="130" rx="26" fill="rgba(255,255,255,0.92)" stroke="rgba(17,17,17,0.14)" strokeWidth="4" />
-          <text x="22" y="48" fontSize="18" fontWeight="950" fill="rgba(17,17,17,0.86)">
-            CTA
-          </text>
-          <text x="22" y="82" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">
-            Une question qui lance une vraie discussion.
-          </text>
-        </g>
-
-        <g transform="translate(240 410)">
-          <rect x="0" y="0" width="560" height="150" rx="26" fill="rgba(255,255,255,0.92)" stroke="rgba(17,17,17,0.14)" strokeWidth="4" />
-          <text x="22" y="48" fontSize="18" fontWeight="950" fill="rgba(17,17,17,0.86)">
-            Hashtags
-          </text>
-          <text x="22" y="86" fontSize="16" fontWeight="800" fill="rgba(17,17,17,0.70)">
-            3–5 hashtags de niche (en bas du post)
-          </text>
-        </g>
-      </g>
-    </svg>
+function MiniStep({ n, title, desc }: { n: string; title: string; desc: string }) {
+  return (
+    <div className="miniStep">
+      <div className="miniStep__n">{n}</div>
+      <div className="miniStep__txt">
+        <div className="miniStep__title">{title}</div>
+        <div className="miniStep__desc">{desc}</div>
+      </div>
+      <div className="miniStep__arrow" aria-hidden="true">
+        ↗
+      </div>
+    </div>
   );
 }
 
@@ -329,7 +269,6 @@ export default function Page() {
   const [subject, setSubject] = useState("");
   const [language, setLanguage] = useState<Lang>("fr");
   const [objective, setObjective] = useState<Objective>("attirer");
-
   const network: Network = "linkedin";
 
   const [loading, setLoading] = useState(false);
@@ -359,6 +298,15 @@ export default function Page() {
 
   const canGenerate = useMemo(() => subject.trim().length > 0, [subject]);
   const subjectCount = subject.trim().length;
+
+  // ✅ Mode “mobile LinkedIn” pour les previews (responsive)
+  const [isMobilePreview, setIsMobilePreview] = useState(false);
+  useEffect(() => {
+    const compute = () => setIsMobilePreview(window.matchMedia("(max-width: 520px)").matches);
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
 
   useEffect(() => {
     const onHashChange = () => setMenuOpen(false);
@@ -432,11 +380,10 @@ export default function Page() {
   const proBlocked = useMemo(() => (audit ? audit.score < PRO_MIN_SCORE : false), [audit]);
   const remaining = Math.max(0, QUOTA_DAILY - aiCount);
 
-  // ✅ Génération IA (corrigée pour gérer {error, code} renvoyé par /api/generate)
+  // ✅ Génération IA
   async function generateWithAI() {
     setError(null);
 
-    // quota UI local (ta règle produit)
     if (aiCount >= QUOTA_DAILY) {
       setError(`Quota IA atteint (${QUOTA_DAILY}/jour). Réessaie demain.`);
       showToast("Quota IA atteint ⚠️");
@@ -458,7 +405,6 @@ export default function Page() {
         const code = String(data?.code ?? "");
         const msg = String(data?.error || "Erreur génération");
 
-        // quota provider (réseau/clé)
         if (res.status === 429 || code === "quota" || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("resource_exhausted")) {
           setError("Quota API IA atteint (côté provider). Réessaie plus tard ou change de clé.");
           showToast("Quota API IA ⚠️");
@@ -539,7 +485,7 @@ export default function Page() {
     copy(result.hashtags);
   };
 
-  // ✅ Auto-fix IA (IMPORTANT)
+  // ✅ Auto-fix IA
   const onAutoFix = async () => {
     if (!result) return;
 
@@ -558,7 +504,7 @@ export default function Page() {
             cta: result.cta,
             hashtags: result.hashtags,
           },
-          audit, // on envoie les warnings + score à Gemini
+          audit,
         }),
       });
 
@@ -597,9 +543,9 @@ export default function Page() {
   if (!mounted) return null;
 
   return (
-    <div className="page">
+    <div className="page page--dark">
       {/* NAV */}
-      <header className="nav">
+      <header className="nav nav--dark">
         <div className="nav__inner">
           <div className="brand">
             <Image src="/logo-socialwriter.svg" alt="SocialWriter" width={150} height={38} className="brand__logo" priority />
@@ -621,7 +567,7 @@ export default function Page() {
             </button>
 
             <button
-              className="btn"
+              className="btn btn--ghost"
               type="button"
               onClick={async () => {
                 try {
@@ -635,7 +581,7 @@ export default function Page() {
               Déconnexion
             </button>
 
-            <a className="btn" href="#generator">
+            <a className="btn btn--primary" href="#generator">
               Commencer
             </a>
           </div>
@@ -653,12 +599,12 @@ export default function Page() {
               FAQ
             </a>
 
-            <a className="btn" href="#generator" onClick={() => setMenuOpen(false)}>
+            <a className="btn btn--primary" href="#generator" onClick={() => setMenuOpen(false)}>
               Commencer
             </a>
 
             <button
-              className="btn"
+              className="btn btn--ghost"
               type="button"
               onClick={async () => {
                 setMenuOpen(false);
@@ -678,39 +624,75 @@ export default function Page() {
       </header>
 
       {/* HERO */}
-      <section className="hero">
+      <section className="hero hero--dark">
         <div className="container">
-          <div className="hero__grid">
-            <div>
-              <div className="pill">
-                <span className="pill__spark" />
+          <div className="hero__grid hero__grid--ref">
+            <div className="heroLeft">
+              <div className="heroKicker">
+                <span className="dot" aria-hidden="true" />
                 <span>
-                  <b>LinkedIn uniquement</b> • IA optimisée 2026
+                  <b>LinkedIn uniquement</b> • Structure 2026 • Mode Pro
                 </span>
               </div>
 
-              <h1 className="h1">
-                Génère des posts LinkedIn <span className="accent">engageants</span> avec l’IA 😄
+              <h1 className="heroTitle">
+                ÉCRIVEZ DES POSTS <span className="accent">LINKEDIN</span> QUI DÉCLENCHENT DES COMMENTAIRES
               </h1>
 
-              <p className="lead">Texte + CTA + Hashtags, structurés pour maximiser la lecture et les conversations.</p>
+              <p className="heroSub">
+                Texte + CTA + Hashtags, optimisés pour la lecture mobile, la clarté, et l’engagement réel (conversation early).
+              </p>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <a className="btn btn--primary" href="#generator">
-                  Générer maintenant
+              <div className="heroActions">
+                <a className="btn btn--primary btn--xl" href="#generator">
+                  Générer mon post
                 </a>
-                <a className="btn" href="#features">
+                <a className="btn btn--ghost btn--xl" href="#features">
                   Voir les fonctions
                 </a>
               </div>
+
+              <div className="statsGrid">
+                <StatCard label="Mode Pro" value="75/100" hint="Copie bloquée si score < 75" />
+                <StatCard label="Audit" value="Temps réel" hint="Hook • Lisibilité • Hashtags • Question" />
+                <StatCard label="Quota IA" value={`${remaining}/${QUOTA_DAILY}`} hint="Restant aujourd’hui (local UI)" />
+              </div>
             </div>
 
-            <div className="heroArt" aria-hidden="true">
-              <div className="heroSticker">
-                <i /> Fun mode ON
-              </div>
-              <div className="heroArt__svg">
-                <HeroCartoonSVG />
+            <div className="heroRight">
+              <div className="heroArtRef">
+                <div className="heroStack">
+                  <div className="heroTile heroTile--big">
+                    <div className="heroTile__title">Aperçu “post LinkedIn”</div>
+                    <div className="heroTile__sub">Avant de publier, tu vois ce que ça donne.</div>
+
+                    <div className="heroPreviewFrame">
+                      <LinkedInPreview
+                        variant={isMobilePreview ? "mobile" : "default"}
+                        caption={
+                          result?.caption ||
+                          "Vous perdez du temps sans vous en rendre compte.\n\nVoici 3 micro-changements qui doublent votre focus (sans travailler plus).\n\n1) …\n2) …\n3) …\n\nVous avez plutôt un problème de focus ou de discipline ?"
+                        }
+                        cta={result?.cta || "Quelle est LA chose qui te fait perdre le plus de temps en ce moment ?"}
+                        hashtags={result?.hashtags || "#productivité #linkedin #personalbranding"}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="heroTile heroTile--mini heroTile--a">
+                    <MiniStep n="01" title="Hook" desc="Vous + chiffre / question / confession" />
+                  </div>
+
+                  <div className="heroTile heroTile--mini heroTile--b">
+                    <MiniStep n="02" title="Structure" desc="Paragraphes courts + 3–5 conseils" />
+                  </div>
+
+                  <div className="heroTile heroTile--mini heroTile--c">
+                    <MiniStep n="03" title="CTA" desc="Question ouverte (réponses > 10 mots)" />
+                  </div>
+                </div>
+
+                <div className="heroGlow" aria-hidden="true" />
               </div>
             </div>
           </div>
@@ -718,64 +700,65 @@ export default function Page() {
       </section>
 
       {/* FEATURES */}
-      <section id="features" className="section">
+      <section id="features" className="section section--dark">
         <div className="container">
-          <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
-            <div style={{ fontWeight: 950, fontSize: 22 }}>Fonctions</div>
-            <div style={{ color: "var(--muted)" }}>Optimisé pour LinkedIn : structure, ton, lisibilité et “copier-coller”.</div>
+          <div className="sectionHead">
+            <div className="sectionTitle">Fonctions</div>
+            <div className="sectionDesc">Tout est pensé pour LinkedIn : structure, audit, correction, et copier-coller propre.</div>
           </div>
 
-          <div className="featuresGrid">
-            <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Auto-sync hashtags</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>Tape “tag1 tag2” → ça devient “#tag1 #tag2”.</div>
+          <div className="featuresGrid featuresGrid--ref">
+            <div className="panel panel--dark" style={{ padding: 18 }}>
+              <div className="panelKicker">Auto-sync</div>
+              <div className="panelTitle">Hashtags auto-normalisés</div>
+              <div className="panelDesc">Tape “tag1 tag2” → ça devient “#tag1 #tag2” (unique, propre, stable).</div>
             </div>
 
-            <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Auto-fix IA</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>L’IA corrige en utilisant le score + warnings LinkedIn.</div>
+            <div className="panel panel--dark" style={{ padding: 18 }}>
+              <div className="panelKicker">Auto-fix</div>
+              <div className="panelTitle">Correction basée sur l’audit</div>
+              <div className="panelDesc">On envoie score + warnings à l’IA : elle corrige ce qui bloque vraiment.</div>
             </div>
 
-            <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Mode Pro</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>
-                Bloque le copier-coller si le score est &lt; <b>75</b>.
-              </div>
+            <div className="panel panel--dark" style={{ padding: 18 }}>
+              <div className="panelKicker">Mode Pro</div>
+              <div className="panelTitle">Copie bloquée si score &lt; 75</div>
+              <div className="panelDesc">Tu postes uniquement quand c’est suffisamment clean.</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* GENERATOR */}
-      <section id="generator" className="section section--tight">
+      <section id="generator" className="section section--dark section--tight">
         <div className="container">
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontWeight: 950, fontSize: 26 }}>Générateur LinkedIn</div>
-            <div style={{ color: "var(--muted)", marginTop: 6 }}>Remplis. Clique. Édite. Auto-fix IA. Copie. Poste.</div>
+          <div className="sectionHead">
+            <div className="sectionTitle">Générateur LinkedIn</div>
+            <div className="sectionDesc">Remplis → génère → édite → auto-fix → copie → publie.</div>
           </div>
 
-          <div className="panel">
-            <div className="panel__grid">
+          <div className="panel panel--dark panel--tool">
+            <div className="panel__grid panel__grid--ref">
               {/* LEFT */}
-              <div className="panel__left">
+              <div className="panel__left panel__left--dark">
                 <div className="field">
                   <div className="field__label" style={{ display: "flex", justifyContent: "space-between" }}>
                     <span>Sujet</span>
-                    <span style={{ color: "var(--muted)", fontWeight: 900 }}>{subjectCount} caractères</span>
+                    <span className="field__meta">{subjectCount} caractères</span>
                   </div>
                   <textarea
-                    className="input"
+                    className="input input--dark"
                     rows={4}
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Ex: L’importance du time management sur le milieu professionnel"
+                    placeholder="Ex: Pourquoi on doit booster notre productivité ?"
                   />
                 </div>
 
                 <div className="row">
                   <div className="field">
                     <div className="field__label">Langue</div>
-                    <select className="input" value={language} onChange={(e) => setLanguage(e.target.value as Lang)}>
+                    <select className="input input--dark" value={language} onChange={(e) => setLanguage(e.target.value as Lang)}>
                       <option value="fr">Français</option>
                       <option value="en">Anglais</option>
                     </select>
@@ -783,7 +766,7 @@ export default function Page() {
 
                   <div className="field">
                     <div className="field__label">Objectif</div>
-                    <select className="input" value={objective} onChange={(e) => setObjective(e.target.value as Objective)}>
+                    <select className="input input--dark" value={objective} onChange={(e) => setObjective(e.target.value as Objective)}>
                       <option value="vendre">Vendre</option>
                       <option value="attirer">Attirer</option>
                       <option value="éduquer">Éduquer</option>
@@ -795,14 +778,14 @@ export default function Page() {
 
                 <div style={{ display: "grid", gap: 10 }}>
                   <button
-                    className={["btn", "btn--primary", loading ? "btn--loading" : ""].join(" ").trim()}
+                    className={["btn", "btn--primary", "btn--xl", loading ? "btn--loading" : ""].join(" ").trim()}
                     onClick={generateWithAI}
                     disabled={!canGenerate || loading || aiCount >= QUOTA_DAILY}
                     style={{ width: "100%" }}
                     title={`Quota IA : ${QUOTA_DAILY}/jour`}
                   >
                     {loading ? (
-                      <span className="loaderCartoon" aria-label="Chargement">
+                      <span className="loaderDots" aria-label="Chargement">
                         <span />
                         <span />
                         <span />
@@ -812,43 +795,51 @@ export default function Page() {
                     )}
                   </button>
 
-                  <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 800 }}>
-                    ✨ IA restante aujourd’hui : {remaining}/{QUOTA_DAILY}
-                  </div>
+                  <div className="tinyInfo">✨ IA restante aujourd’hui : {remaining}/{QUOTA_DAILY}</div>
                 </div>
 
                 {error && (
-                  <div className="alert">
+                  <div className="alert alert--dark">
                     <b>Erreur :</b> {error}
                   </div>
                 )}
+
+                <div className="proNote">
+                  <div className="proNote__title">Mode Pro</div>
+                  <div className="proNote__desc">Copie bloquée si score &lt; {PRO_MIN_SCORE}. Utilise Auto-fix IA pour corriger vite.</div>
+                </div>
               </div>
 
               {/* RIGHT */}
-              <div className="panel__right" id="resultBlock">
+              <div className="panel__right panel__right--dark" id="resultBlock">
                 {!result ? (
-                  <div className="empty">
+                  <div className="empty empty--dark">
                     <div className="empty__icon">📝</div>
                     <div className="empty__title">Tes résultats apparaîtront ici</div>
                     <div className="empty__sub">Génère, puis édite (caption/CTA/hashtags). Auto-fix IA est dispo.</div>
                   </div>
                 ) : (
                   <div style={{ display: "grid", gap: 12 }}>
-                    <div className="result">
-                      <div className="result__top">
+                    <div className="result result--dark">
+                      <div className="result__top result__top--dark">
                         <div style={{ fontWeight: 950 }}>Éditeur</div>
 
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                          <button className="btn" onClick={onAutoFix} disabled={loading || !audit} title="Auto-fix IA">
+                          <button className="btn btn--ghost" onClick={onAutoFix} disabled={loading || !audit} title="Auto-fix IA">
                             Auto-fix IA ✨
                           </button>
 
-                          <button className="btn" onClick={copyAll} disabled={loading || proBlocked} title={proBlocked ? `Mode Pro : score < ${PRO_MIN_SCORE}` : "Copier tout"}>
+                          <button
+                            className="btn btn--ghost"
+                            onClick={copyAll}
+                            disabled={loading || proBlocked}
+                            title={proBlocked ? `Mode Pro : score < ${PRO_MIN_SCORE}` : "Copier tout"}
+                          >
                             Copier tout
                           </button>
 
                           {audit && badge && (
-                            <span style={{ padding: "8px 12px", borderRadius: 999, fontWeight: 950, border: "3px solid rgba(17,17,17,0.10)", background: "rgba(255,255,255,0.84)" }}>
+                            <span className={["scorePill", `scorePill--${badge.tone}`].join(" ")}>
                               {badge.label} • {audit.score}/100
                             </span>
                           )}
@@ -856,39 +847,38 @@ export default function Page() {
                       </div>
 
                       {proBlocked && (
-                        <div className="swWarnings" style={{ marginTop: 12 }}>
+                        <div className="swWarnings swWarnings--dark" style={{ marginTop: 12 }}>
                           <div className="swWarnings__title">Mode Pro : copie bloquée</div>
-                          <div style={{ color: "var(--muted)", fontWeight: 900 }}>
-                            Score &lt; {PRO_MIN_SCORE}. Corrige les warnings (ou clique Auto-fix IA).
-                          </div>
+                          <div className="swWarnings__desc">Score &lt; {PRO_MIN_SCORE}. Corrige les warnings (ou clique Auto-fix IA).</div>
                         </div>
                       )}
 
-                      {/* ✅ Aperçu LinkedIn (look proche LinkedIn) */}
                       <div style={{ marginTop: 12 }}>
-                        <div style={{ fontWeight: 950, marginBottom: 8 }}>Aperçu LinkedIn</div>
-                        <LinkedInPreview caption={result.caption} cta={result.cta} hashtags={result.hashtags} />
+                        <div className="subTitle">Aperçu LinkedIn</div>
+                        <div className="previewWrap">
+                          <LinkedInPreview variant={isMobilePreview ? "mobile" : "default"} caption={result.caption} cta={result.cta} hashtags={result.hashtags} />
+                        </div>
                       </div>
 
                       <div style={{ padding: 14, display: "grid", gap: 12 }}>
-                        {/* ===== CAPTION ===== */}
-                        <div className="swBlock">
-                          <div className="swBlock__head">
+                        {/* CAPTION */}
+                        <div className="swBlock swBlock--dark">
+                          <div className="swBlock__head swBlock__head--dark">
                             <div className="swBlock__title">Caption</div>
 
                             <div className="swBlock__meta">
-                              <span className="swCount">{(result.caption ?? "").length}</span>
+                              <span className="swCount swCount--dark">{(result.caption ?? "").length}</span>
 
-                              <button className="btn" type="button" onClick={copyCaption} disabled={loading || proBlocked}>
+                              <button className="btn btn--ghost" type="button" onClick={copyCaption} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
                           </div>
 
-                          <div className="swBlock__help">Hook 150–180 • 1 idée • question finale</div>
+                          <div className="swBlock__help swBlock__help--dark">Hook 150–180 • 1 idée • question finale</div>
 
                           <textarea
-                            className="swEditor swEditor--caption"
+                            className="swEditor swEditor--caption swEditor--dark"
                             value={result.caption}
                             onChange={(e) => setResult((prev) => (prev ? { ...prev, caption: e.target.value } : prev))}
                             placeholder="Ta caption…"
@@ -896,24 +886,24 @@ export default function Page() {
                           />
                         </div>
 
-                        {/* ===== CTA ===== */}
-                        <div className="swBlock">
-                          <div className="swBlock__head">
+                        {/* CTA */}
+                        <div className="swBlock swBlock--dark">
+                          <div className="swBlock__head swBlock__head--dark">
                             <div className="swBlock__title">CTA</div>
 
                             <div className="swBlock__meta">
-                              <span className="swCount">{(result.cta ?? "").length}</span>
+                              <span className="swCount swCount--dark">{(result.cta ?? "").length}</span>
 
-                              <button className="btn" type="button" onClick={copyCTA} disabled={loading || proBlocked}>
+                              <button className="btn btn--ghost" type="button" onClick={copyCTA} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
                           </div>
 
-                          <div className="swBlock__help">Question ouverte • relance commentaires (&gt; 10 mots)</div>
+                          <div className="swBlock__help swBlock__help--dark">Question ouverte • relance commentaires (&gt; 10 mots)</div>
 
                           <textarea
-                            className="swEditor swEditor--cta"
+                            className="swEditor swEditor--cta swEditor--dark"
                             value={result.cta}
                             onChange={(e) => setResult((prev) => (prev ? { ...prev, cta: e.target.value } : prev))}
                             placeholder="Ta CTA… (idéal: question ouverte)"
@@ -921,24 +911,24 @@ export default function Page() {
                           />
                         </div>
 
-                        {/* ===== HASHTAGS ===== */}
-                        <div className="swBlock">
-                          <div className="swBlock__head">
+                        {/* HASHTAGS */}
+                        <div className="swBlock swBlock--dark">
+                          <div className="swBlock__head swBlock__head--dark">
                             <div className="swBlock__title">Hashtags</div>
 
                             <div className="swBlock__meta">
-                              <span className="swCount">{(result.hashtags ?? "").length}</span>
+                              <span className="swCount swCount--dark">{(result.hashtags ?? "").length}</span>
 
-                              <button className="btn" type="button" onClick={copyHashtags} disabled={loading || proBlocked}>
+                              <button className="btn btn--ghost" type="button" onClick={copyHashtags} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
                           </div>
 
-                          <div className="swBlock__help">3–5 hashtags • niche • auto-ajout de # si oublié</div>
+                          <div className="swBlock__help swBlock__help--dark">3–5 hashtags • niche • auto-ajout de # si oublié</div>
 
                           <textarea
-                            className="swEditor swEditor--hashtags"
+                            className="swEditor swEditor--hashtags swEditor--dark"
                             value={result.hashtags}
                             onChange={(e) => {
                               const next = e.target.value;
@@ -955,19 +945,19 @@ export default function Page() {
                       </div>
 
                       {audit && (
-                        <div className="panel" style={{ padding: 16 }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                            <div style={{ fontWeight: 950, fontSize: 18 }}>Score LinkedIn 2026</div>
+                        <div className="panel panel--dark" style={{ padding: 16 }}>
+                          <div className="auditHead">
+                            <div className="auditTitle">Score LinkedIn 2026</div>
 
                             {badge && (
-                              <span style={{ padding: "8px 12px", borderRadius: 999, fontWeight: 950, border: `3px solid ${badge.bd}`, background: badge.bg }}>
+                              <span className={["scorePill", `scorePill--${badge.tone}`].join(" ")}>
                                 {badge.label} • {audit.score}/100
                               </span>
                             )}
                           </div>
 
-                          <div className="swChecks">
-                            <div className={["swCheck", audit.checks.hookLength ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                          <div className="swChecks swChecks--dark">
+                            <div className={["swCheck", "swCheck--dark", audit.checks.hookLength ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                               <div className="swCheck__icon">{audit.checks.hookLength ? "✓" : "✗"}</div>
                               <div className="swCheck__text">
                                 <div className="swCheck__label">Hook 150–180 caractères</div>
@@ -977,7 +967,7 @@ export default function Page() {
                               </div>
                             </div>
 
-                            <div className={["swCheck", audit.checks.singleIdea ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                            <div className={["swCheck", "swCheck--dark", audit.checks.singleIdea ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                               <div className="swCheck__icon">{audit.checks.singleIdea ? "✓" : "✗"}</div>
                               <div className="swCheck__text">
                                 <div className="swCheck__label">1 seule idée (angle clair)</div>
@@ -987,7 +977,7 @@ export default function Page() {
                               </div>
                             </div>
 
-                            <div className={["swCheck", audit.checks.openQuestion ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                            <div className={["swCheck", "swCheck--dark", audit.checks.openQuestion ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                               <div className="swCheck__icon">{audit.checks.openQuestion ? "✓" : "✗"}</div>
                               <div className="swCheck__text">
                                 <div className="swCheck__label">Question ouverte en fin de post</div>
@@ -995,7 +985,7 @@ export default function Page() {
                               </div>
                             </div>
 
-                            <div className={["swCheck", audit.checks.hashtagCount ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                            <div className={["swCheck", "swCheck--dark", audit.checks.hashtagCount ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                               <div className="swCheck__icon">{audit.checks.hashtagCount ? "✓" : "✗"}</div>
                               <div className="swCheck__text">
                                 <div className="swCheck__label">3–5 hashtags</div>
@@ -1005,7 +995,7 @@ export default function Page() {
                               </div>
                             </div>
 
-                            <div className={["swCheck", audit.checks.mobileReadable ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
+                            <div className={["swCheck", "swCheck--dark", audit.checks.mobileReadable ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                               <div className="swCheck__icon">{audit.checks.mobileReadable ? "✓" : "✗"}</div>
                               <div className="swCheck__text">
                                 <div className="swCheck__label">Lisibilité mobile (paragraphes courts)</div>
@@ -1017,7 +1007,7 @@ export default function Page() {
                           </div>
 
                           {audit.warnings.length > 0 && (
-                            <div className="swWarnings">
+                            <div className="swWarnings swWarnings--dark">
                               <div className="swWarnings__title">Warnings (temps réel)</div>
                               <ul>
                                 {audit.warnings.map((w, i) => (
@@ -1037,23 +1027,7 @@ export default function Page() {
 
           {/* Toast */}
           {toast && (
-            <div
-              style={{
-                position: "fixed",
-                left: "50%",
-                transform: "translateX(-50%)",
-                bottom: 18,
-                zIndex: 9999,
-                padding: "10px 14px",
-                borderRadius: 999,
-                border: "3px solid rgba(17,17,17,0.12)",
-                background: "rgba(255,255,255,0.92)",
-                boxShadow: "0 12px 0 rgba(17,17,17,0.08)",
-                fontWeight: 950,
-              }}
-              role="status"
-              aria-live="polite"
-            >
+            <div className="toastDark" role="status" aria-live="polite">
               {toast}
             </div>
           )}
@@ -1061,29 +1035,43 @@ export default function Page() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="section">
+      <section id="faq" className="section section--dark">
         <div className="container">
-          <div style={{ fontWeight: 950, fontSize: 22, marginBottom: 10 }}>FAQ</div>
+          <div className="sectionHead">
+            <div className="sectionTitle">FAQ</div>
+            <div className="sectionDesc">Les 3 règles qui rendent un post “prêt à publier”.</div>
+          </div>
 
-          <div style={{ display: "grid", gap: 10 }}>
-            <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Auto-sync hashtags</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>Tu peux taper sans # : on normalise automatiquement.</div>
+          <div className="featuresGrid featuresGrid--ref">
+            <div className="panel panel--dark" style={{ padding: 18 }}>
+              <div className="panelKicker">Auto-sync</div>
+              <div className="panelTitle">Hashtags</div>
+              <div className="panelDesc">Tu peux taper sans # : on normalise automatiquement.</div>
             </div>
 
-            <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Auto-fix IA</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>On envoie ton post + score + warnings à l’IA qui corrige vraiment.</div>
+            <div className="panel panel--dark" style={{ padding: 18 }}>
+              <div className="panelKicker">Auto-fix</div>
+              <div className="panelTitle">Correction</div>
+              <div className="panelDesc">On envoie ton post + score + warnings à l’IA pour corriger ce qui bloque.</div>
             </div>
 
-            <div className="panel" style={{ padding: 16 }}>
-              <div style={{ fontWeight: 950 }}>Mode Pro</div>
-              <div style={{ color: "var(--muted)", marginTop: 6 }}>Copie bloquée si score &lt; 75.</div>
+            <div className="panel panel--dark" style={{ padding: 18 }}>
+              <div className="panelKicker">Mode Pro</div>
+              <div className="panelTitle">Qualité minimale</div>
+              <div className="panelDesc">Copie bloquée si score &lt; 75.</div>
             </div>
           </div>
 
-          <div style={{ marginTop: 18, color: "var(--muted)", fontSize: 12 }}>
-            © <span suppressHydrationWarning>{new Date().getFullYear()}</span> SocialWriter — Fun. Rapide. Prêt à poster.
+          <div className="footerRef">
+            <div className="footerRef__left">
+              <div className="footerRef__big">READY TO POST</div>
+              <div className="footerRef__small">© {new Date().getFullYear()} SocialWriter — LinkedIn only.</div>
+            </div>
+            <div className="footerRef__right">
+              <a href="#features">Fonctions</a>
+              <a href="#generator">Générateur</a>
+              <a href="#faq">FAQ</a>
+            </div>
           </div>
         </div>
       </section>
