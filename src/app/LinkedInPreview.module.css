@@ -1,0 +1,287 @@
+.liFeed{
+  width: 100%;
+  /* Fond "LinkedIn" autour de la carte */
+  background: #f3f2ef;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+/* Carte post */
+.liCard {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  /* Ombre plus "LinkedIn" */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+/* Header */
+.liHeader {
+  display: grid;
+  grid-template-columns: 44px 1fr 36px;
+  gap: 12px;
+  padding: 14px 14px 10px 14px;
+  align-items: start;
+}
+
+.liAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: rgba(17, 17, 17, 0.88);
+  background: linear-gradient(180deg, rgba(10, 102, 194, 0.16), rgba(255, 255, 255, 0.92));
+  border: 1px solid rgba(0, 0, 0, 0.10);
+}
+
+.liHeaderMeta {
+  min-width: 0;
+}
+
+.liNameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.15;
+}
+
+.liName {
+  font-weight: 700;
+  font-size: 14px;
+  color: rgba(17, 17, 17, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.liFollow {
+  border: 0;
+  background: transparent;
+  color: rgba(10, 102, 194, 0.98);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.liHeadline {
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(17, 17, 17, 0.68);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.liSubRow {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(17, 17, 17, 0.60);
+}
+
+.liAudience {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.liMore {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(255, 255, 255, 0.86);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.liMore:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Body */
+.liBody {
+  padding: 2px 14px 12px 14px;
+}
+
+.liText {
+  font-size: 14px;
+  line-height: 1.38;
+  color: rgba(17, 17, 17, 0.92);
+  font-weight: 500;
+}
+
+.liLine {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* hashtags */
+.hashtag {
+  color: rgba(10, 102, 194, 0.98);
+  font-weight: 650;
+}
+
+.liSeeMoreInline {
+  margin-top: 6px;
+  border: 0;
+  background: transparent;
+  color: rgba(10, 102, 194, 0.98);
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0;
+}
+
+.liHint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(17, 17, 17, 0.55);
+  font-weight: 600;
+}
+
+/* Reactions */
+.liReactions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 12px;
+  color: rgba(17, 17, 17, 0.62);
+}
+
+.liReactionsLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.liBadges {
+  display: inline-flex;
+  align-items: center;
+}
+
+.liBadge {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: #ffffff;
+  margin-right: -6px;
+}
+
+.liCount {
+  font-weight: 650;
+}
+
+.liReactionsRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.liDot {
+  opacity: 0.65;
+}
+
+/* Actions */
+.liActions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 6px 10px 10px 10px;
+}
+
+.liActionBtn {
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 10px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  color: rgba(17, 17, 17, 0.72);
+  font-weight: 650;
+  font-size: 13px;
+}
+
+.liActionBtn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.liActionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.liActionLabel {
+  transform: translateY(0.5px);
+}
+
+/* ✅ Comment bar (look LinkedIn) */
+.liCommentBar{
+  padding: 10px 14px 14px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.liCommentAvatar{
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 750;
+  color: rgba(17, 17, 17, 0.86);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(243,242,239,0.9);
+}
+
+.liCommentInput{
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: rgba(17, 17, 17, 0.62);
+  background: rgba(243,242,239,0.55);
+}
+
+/* Icons */
+.liIcon {
+  opacity: 0.88;
+}
+
+/* Mobile */
+@media (max-width: 520px) {
+  .liFeed{ padding: 10px; }
+
+  .liActions {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .liHeader {
+    grid-template-columns: 40px 1fr 36px;
+  }
+
+  .liAvatar {
+    width: 40px;
+    height: 40px;
+  }
+}

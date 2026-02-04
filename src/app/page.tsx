@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import LinkedInPreview from "./LinkedInPreview";
 
 // ✅ Types (IA-only)
 type Objective = "vendre" | "attirer" | "éduquer" | "recruter" | "inspirer";
@@ -239,63 +240,6 @@ function computeLinkedInAudit(args: { subject: string; caption: string; cta: str
   };
 
   return { score, checks, details, warnings };
-}
-
-/** ✅ Aperçu LinkedIn (hook + Voir plus) */
-function LinkedInPreview(props: { caption: string; cta: string; hashtags: string }) {
-  const { caption, cta, hashtags } = props;
-  const [expanded, setExpanded] = useState(false);
-
-  const fullText = useMemo(() => {
-    const parts = [caption?.trim(), cta?.trim(), hashtags?.trim()].filter(Boolean);
-    return parts.join("\n\n").trim();
-  }, [caption, cta, hashtags]);
-
-  const COLLAPSE_AT = 210;
-
-  const collapsed = useMemo(() => {
-    if (!fullText) return "";
-    if (fullText.length <= COLLAPSE_AT) return fullText;
-    return fullText.slice(0, COLLAPSE_AT).trimEnd();
-  }, [fullText]);
-
-  const showMore = fullText.length > COLLAPSE_AT;
-
-  return (
-    <div
-      style={{
-        border: "3px solid rgba(17,17,17,0.12)",
-        borderRadius: 22,
-        background: "rgba(255,255,255,0.90)",
-        boxShadow: "0 12px 0 rgba(17,17,17,0.08)",
-        padding: 14,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 999, background: "rgba(17,17,17,0.10)" }} />
-        <div style={{ lineHeight: 1.2 }}>
-          <div style={{ fontWeight: 950 }}>Vous</div>
-          <div style={{ fontSize: 12, color: "rgba(17,17,17,0.62)", fontWeight: 800 }}>LinkedIn • Aperçu</div>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 12, whiteSpace: "pre-wrap", fontSize: 14, fontWeight: 800, color: "rgba(17,17,17,0.84)" }}>
-        {!expanded ? collapsed : fullText}
-        {showMore && !expanded && (
-          <>
-            {" "}
-            <span style={{ color: "rgba(10,102,194,0.95)", fontWeight: 950 }}>… voir plus</span>
-          </>
-        )}
-      </div>
-
-      {showMore && (
-        <button className="btn" type="button" onClick={() => setExpanded((v) => !v)} style={{ marginTop: 10 }}>
-          {expanded ? "Réduire" : "Voir plus"}
-        </button>
-      )}
-    </div>
-  );
 }
 
 /** ✅ Gros SVG hero inline */
@@ -920,7 +864,7 @@ export default function Page() {
                         </div>
                       )}
 
-                      {/* ✅ Aperçu LinkedIn réel */}
+                      {/* ✅ Aperçu LinkedIn (look proche LinkedIn) */}
                       <div style={{ marginTop: 12 }}>
                         <div style={{ fontWeight: 950, marginBottom: 8 }}>Aperçu LinkedIn</div>
                         <LinkedInPreview caption={result.caption} cta={result.cta} hashtags={result.hashtags} />

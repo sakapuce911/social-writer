@@ -30,6 +30,13 @@
   --badBg: rgba(255, 77, 109, 0.10);
   --warn: rgba(255, 176, 102, 1);
   --warnBg: rgba(255, 176, 102, 0.12);
+
+  /* ✅ Focus ring clean (pro) */
+  --focusRing: rgba(10,102,194,0.35);
+  --focusShadow: 0 0 0 4px rgba(10,102,194,0.16);
+
+  /* ✅ Police plus "LinkedIn-like" */
+  --fontUI: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
 *{ box-sizing:border-box; }
@@ -37,7 +44,7 @@ html, body{ height:100%; }
 
 body{
   margin:0;
-  font-family: ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: var(--fontUI);
   color: var(--text);
   background:
     radial-gradient(1200px 500px at 70% 20%, rgba(124,92,255,0.14), transparent 60%),
@@ -61,6 +68,14 @@ body:before{
 a{ color: inherit; text-decoration:none; }
 button, input, textarea, select { font: inherit; }
 textarea{ resize: vertical; }
+
+/* ✅ Focus accessible & premium */
+:focus{ outline: none; }
+:focus-visible{
+  outline: none;
+  box-shadow: var(--focusShadow);
+  border-color: var(--focusRing) !important;
+}
 
 .container{
   width: min(1120px, calc(100% - 48px));
@@ -322,8 +337,8 @@ textarea{ resize: vertical; }
   box-shadow: 0 8px 18px rgba(17,17,17,0.06);
 }
 .input:focus{
-  border-color: rgba(124,92,255,0.34);
-  box-shadow: 0 10px 22px rgba(124,92,255,0.12);
+  border-color: rgba(10,102,194,0.28);
+  box-shadow: 0 10px 22px rgba(10,102,194,0.10);
 }
 
 .row{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -475,9 +490,9 @@ textarea{ resize: vertical; }
 
 /* sélection = ring clean */
 .networkCard2--selected .netBanner{
-  border-color: rgba(124,92,255,0.35);
+  border-color: rgba(10,102,194,0.30);
   box-shadow:
-    0 16px 40px rgba(124,92,255,0.14),
+    0 16px 40px rgba(10,102,194,0.12),
     0 12px 26px rgba(17,17,17,0.10),
     inset 0 1px 0 rgba(255,255,255,0.18);
 }
@@ -647,27 +662,15 @@ textarea{ resize: vertical; }
   resize: vertical;
 }
 .swEditor:focus{
-  border-color: rgba(124,92,255,0.34);
-  box-shadow: 0 12px 28px rgba(124,92,255,0.12);
+  border-color: rgba(10,102,194,0.28);
+  box-shadow: 0 12px 28px rgba(10,102,194,0.10);
 }
 @media (max-width: 520px){
   .swEditor{ min-height: 220px; }
 }
+
 /* =========================================================
    ✅ MICRO-STYLE — "APP EDITOR" (Caption / CTA / Hashtags)
-   - header sticky + compteur + helper
-   - look premium, mobile-friendly
-   Utilise dans page.tsx :
-     <div className="swBlock">
-       <div className="swBlock__head">
-         <div className="swBlock__title">Caption</div>
-         <div className="swBlock__meta">
-           <span className="swCount">123</span>
-         </div>
-       </div>
-       <div className="swBlock__help">…</div>
-       <textarea className="swEditor swEditor--caption" />
-     </div>
 ========================================================= */
 
 .swBlock{
@@ -739,8 +742,8 @@ textarea{ resize: vertical; }
 
 /* focus ring clean sur tout le bloc */
 .swBlock:focus-within{
-  border-color: rgba(124,92,255,0.34);
-  box-shadow: 0 12px 28px rgba(124,92,255,0.12);
+  border-color: rgba(10,102,194,0.28);
+  box-shadow: 0 12px 28px rgba(10,102,194,0.10);
 }
 
 /* Variantes hauteur */
