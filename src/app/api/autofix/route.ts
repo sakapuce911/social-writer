@@ -125,9 +125,10 @@ export async function POST(req: Request) {
 
     if (!subject) return NextResponse.json({ error: "Sujet manquant." }, { status: 400 });
 
-    // Prompt ultra explicite : JSON strict
+    // ✅ Prompt ultra explicite : JSON strict
+    // (⚠️ Pas de "2026" ici pour éviter que l'IA le recopie)
     const prompt = `
-Tu es un expert LinkedIn (2026). Tu corriges un post pour maximiser la conversation (engagement) ET respecter des contraintes.
+Tu es un expert LinkedIn. Tu corriges un post pour maximiser la conversation (engagement) ET respecter des contraintes.
 Tu dois sortir UNIQUEMENT un JSON strict (sans markdown, sans texte autour).
 
 Langue: ${language}
@@ -147,12 +148,15 @@ Score & recommandations (si présentes):
 ${audit ? JSON.stringify(audit) : "Aucun audit fourni"}
 
 Contraintes à respecter:
-- Hook (1ère ligne) doit être entre 150 et 180 caractères (FR/EN) si possible
+- Hook (1ère ligne) doit être entre 150 et 180 caractères si possible
+- Hook commence par "Vous"
 - 1 seule idée, lisible mobile (paragraphes courts)
 - Une question ouverte en fin (caption ou cta doit finir par "?")
 - Hashtags: 3 à 5, uniques, de niche, format "#tag"
 - Ne change PAS le sujet, améliore la clarté et l'impact
 - Ne supprime pas le CTA : il doit inciter à commenter (>10 mots)
+- N'invente pas de chiffres précis si le sujet n'en donne pas
+- N'ajoute pas de lien / URL
 
 Sortie attendue (JSON strict):
 {
@@ -163,10 +167,13 @@ Sortie attendue (JSON strict):
 `.trim();
 
     // ✅ Appel via provider (rotation clés + retry + fallback models)
-    const r = await callLLM(prompt, { temperature: 0.5, maxOutputTokens: 900 });
+    const r = await callLLM(prompt, {
+      temperature: 0.5,
+      maxOutputTokens: 900,
+      timeoutMs: 15000,
+      forceJson: true,
+    });
 
-    // ✅ FIX TS: callLLM est typé LLMResult, qui n’expose pas model/keyIndex
-    // On récupère ces champs si présents, sans casser le build.
     const metaModel = (r as any)?.model ?? null;
     const metaKeyIndex = (r as any)?.keyIndex ?? null;
 
@@ -181,24 +188,29 @@ Sortie attendue (JSON strict):
       if (embedded) parsed = coerceOutput(embedded);
     }
 
-    // 3) si encore pas ok -> tentative de "repair" (demande au modèle de renvoyer uniquement JSON)
+    // 3) si encore pas ok -> repair IA (JSON only)
     if (!parsed) {
       const repairPrompt = `
 Tu dois répondre UNIQUEMENT avec un JSON strict, sans aucun autre texte.
-Voici un texte qui doit être converti en JSON au format:
+Convertis/répare ce contenu au format:
 {
   "caption": "...",
   "cta": "...",
   "hashtags": "#tag1 #tag2 #tag3"
 }
 
-Texte:
-${rawText}
+Contenu à réparer:
+"""${rawText}"""
 `.trim();
 
-      const rr = await callLLM(repairPrompt, { temperature: 0.2, maxOutputTokens: 700 });
-      const repaired = stripCodeFences(String((rr as any)?.text ?? "")).trim();
+      const rr = await callLLM(repairPrompt, {
+        temperature: 0.2,
+        maxOutputTokens: 700,
+        timeoutMs: 12000,
+        forceJson: true,
+      });
 
+      const repaired = stripCodeFences(String((rr as any)?.text ?? "")).trim();
       parsed = coerceOutput(repaired) || coerceOutput(extractFirstJSONObject(repaired));
       rawText = repaired || rawText;
     }
@@ -206,7 +218,7 @@ ${rawText}
     if (!parsed) {
       return NextResponse.json(
         {
-          error: "Réponse IA inexploitable (ni JSON ni sections).",
+          error: "Réponse IA inexploitable (JSON invalide).",
           raw: rawText.slice(0, 2500),
         },
         { status: 502 }
@@ -224,6 +236,14 @@ ${rawText}
   } catch (e: unknown) {
     console.error("Autofix route crash:", e);
     const msg = e instanceof Error ? e.message : String(e);
+
+    const lower = msg.toLowerCase();
+    const isTimeout = lower.includes("timeout") || lower.includes("aborterror") || lower.includes("504");
+    const isQuota = lower.includes("quota") || lower.includes("resource_exhausted") || lower.includes("rate limit") || lower.includes("429");
+
+    if (isTimeout) return NextResponse.json({ error: msg, code: "timeout" }, { status: 504 });
+    if (isQuota) return NextResponse.json({ error: msg, code: "quota" }, { status: 429 });
+
     return NextResponse.json({ error: msg || "Erreur serveur autofix" }, { status: 500 });
   }
 }

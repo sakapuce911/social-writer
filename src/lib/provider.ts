@@ -6,8 +6,14 @@ type CallOpts = {
   maxOutputTokens?: number;
   system?: string;
 
-  // ✅ NEW: force JSON (Gemini)
+  // ✅ force JSON (Gemini)
   responseMimeType?: "application/json" | "text/plain";
+
+  // ✅ timeout par requête (ms)
+  timeoutMs?: number;
+
+  // ✅ compat: quand tu veux forcer du JSON
+  forceJson?: boolean;
 };
 
 type CallResult = {
@@ -25,10 +31,6 @@ function getEnvList(name: string): string[] {
     .filter(Boolean);
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 function extractTextFromGemini(data: any): string {
   const parts = data?.candidates?.[0]?.content?.parts;
   if (Array.isArray(parts)) {
@@ -42,17 +44,15 @@ function extractTextFromGemini(data: any): string {
   return "";
 }
 
-function isRetryableStatus(status: number) {
-  return status === 503 || status === 500 || status === 429;
-}
-
 function isQuotaError(msg: string) {
   const m = (msg ?? "").toLowerCase();
   return (
     m.includes("quota") ||
     m.includes("rate limit") ||
     m.includes("resource_exhausted") ||
-    m.includes("exceeded your current quota")
+    m.includes("exceeded your current quota") ||
+    m.includes("limit: 0") ||
+    m.includes("insufficient quota")
   );
 }
 
@@ -61,20 +61,6 @@ function normalizeBaseUrl(raw: string) {
   base = base.replace(/\/+$/, "");
   if (!/\/v1beta$/i.test(base)) base = base + "/v1beta";
   return base.replace(/\/+$/, "");
-}
-
-function buildModelsList(): string[] {
-  const list = getEnvList("LLM_MODELS");
-  if (list.length > 0) return list;
-
-  const primary = (process.env.LLM_MODEL_PRIMARY ?? "").trim();
-  const fallbacks = getEnvList("LLM_MODEL_FALLBACKS");
-  if (primary) return [primary, ...fallbacks].filter(Boolean);
-
-  const single = (process.env.LLM_MODEL ?? "").trim();
-  if (single) return [single];
-
-  return ["gemini-2.0-flash", "gemini-1.5-flash"];
 }
 
 // Hash simple (FNV-1a)
@@ -93,47 +79,60 @@ function pickStartIndex(keys: string[], prompt: string) {
   return fnv1a32(prompt) % keys.length;
 }
 
-/** Cooldown par instance */
-const keyCooldownUntil = new Map<number, number>();
-
-function nowMs() {
-  return Date.now();
+function envTimeoutMs() {
+  const v = Number(process.env.LLM_TIMEOUT_MS ?? "");
+  return Number.isFinite(v) && v > 0 ? v : null;
 }
 
-function getCooldownMs(kind: "quota" | "auth" | "overloaded" | "other") {
-  const env = (name: string) => {
-    const v = Number(process.env[name] ?? "");
-    return Number.isFinite(v) && v > 0 ? v : null;
-  };
-
-  const quotaSec = env("LLM_COOLDOWN_QUOTA_SEC") ?? 10 * 60;
-  const authSec = env("LLM_COOLDOWN_AUTH_SEC") ?? 60 * 60;
-  const overloadedSec = env("LLM_COOLDOWN_OVERLOADED_SEC") ?? 15;
-  const otherSec = env("LLM_COOLDOWN_OTHER_SEC") ?? 60;
-
-  const sec =
-    kind === "quota" ? quotaSec :
-    kind === "auth" ? authSec :
-    kind === "overloaded" ? overloadedSec :
-    otherSec;
-
-  return sec * 1000;
-}
-
-function isKeyInCooldown(keyIndex: number) {
-  const until = keyCooldownUntil.get(keyIndex);
-  if (!until) return false;
-  if (until <= nowMs()) {
-    keyCooldownUntil.delete(keyIndex);
-    return false;
+function devLog(...args: any[]) {
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.log("[LLM]", ...args);
   }
-  return true;
 }
 
-function setKeyCooldown(keyIndex: number, kind: "quota" | "auth" | "overloaded" | "other") {
-  const until = nowMs() + getCooldownMs(kind);
-  const prev = keyCooldownUntil.get(keyIndex) ?? 0;
-  if (until > prev) keyCooldownUntil.set(keyIndex, until);
+/**
+ * ✅ fetch "anti-blocage" :
+ * - AbortController
+ * - + Promise.race hard-timeout
+ *
+ * FIX: pas de référence à timeoutPromise avant initialisation
+ */
+async function fetchWithHardTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      try {
+        controller.abort();
+      } catch {}
+      reject(new Error(`Timeout après ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    const fetchPromise = fetch(url, { ...init, signal: controller.signal });
+    const resp = await Promise.race([fetchPromise, timeoutPromise]);
+    return resp as Response;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+function buildModelsList(): string[] {
+  const list = getEnvList("LLM_MODELS");
+  if (list.length > 0) return list;
+
+  const primary = (process.env.LLM_MODEL_PRIMARY ?? "").trim();
+  const fallbacks = getEnvList("LLM_MODEL_FALLBACKS");
+  if (primary) return [primary, ...fallbacks].filter(Boolean);
+
+  const single = (process.env.LLM_MODEL ?? "").trim();
+  if (single) return [single];
+
+  return ["gemini-2.0-flash", "gemini-2.0-flash-lite"];
 }
 
 export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<CallResult> {
@@ -142,7 +141,9 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
   const keys =
     getEnvList("LLM_API_KEYS").length > 0
       ? getEnvList("LLM_API_KEYS")
-      : (process.env.LLM_API_KEY ? [String(process.env.LLM_API_KEY)] : []);
+      : process.env.LLM_API_KEY
+        ? [String(process.env.LLM_API_KEY)]
+        : [];
 
   if (keys.length === 0) {
     throw new Error("LLM_API_KEY(S) manquant. Ajoute LLM_API_KEYS dans .env.local et sur Vercel.");
@@ -153,96 +154,95 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
   const temperature = typeof opts.temperature === "number" ? opts.temperature : 0.6;
   const maxOutputTokens = typeof opts.maxOutputTokens === "number" ? opts.maxOutputTokens : 900;
 
-  let lastErr: { status?: number; message: string } | null = null;
+  const timeoutMs =
+    typeof opts.timeoutMs === "number" && opts.timeoutMs > 0
+      ? opts.timeoutMs
+      : envTimeoutMs() ?? 15000;
+
+  const responseMimeType =
+    opts.forceJson ? "application/json" : (opts.responseMimeType ?? "text/plain");
 
   const start = pickStartIndex(keys, prompt);
 
+  // ✅ Politique "quota gratuit" :
+  // - on essaye clé -> modèle, sans boucle infinie
+  // - si quota, on passe à la clé suivante
+  let lastErr: { status?: number; message: string } | null = null;
+
   for (let ki = 0; ki < keys.length; ki++) {
     const keyIndex = (start + ki) % keys.length;
-    if (isKeyInCooldown(keyIndex)) continue;
-
     const key = keys[keyIndex];
 
     for (const model of models) {
       const url = `${baseUrl}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
 
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature,
-              maxOutputTokens,
-              ...(opts.responseMimeType ? { responseMimeType: opts.responseMimeType } : {}),
-            },
-          }),
-        });
+      let resp: Response | null = null;
+      let data: any = null;
 
-        const data = await resp.json().catch(() => null);
+      try {
+        devLog(`call model=${model} keyIndex=${keyIndex} timeoutMs=${timeoutMs}`);
 
-        if (resp.ok) {
-          const text = extractTextFromGemini(data);
-          if (!text) {
-            lastErr = { status: 502, message: "Réponse Gemini vide ou inattendue." };
-            break;
-          }
-          return { text, model, keyIndex };
-        }
+        resp = await fetchWithHardTimeout(
+          url,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature,
+                maxOutputTokens,
+                responseMimeType,
+              },
+            }),
+          },
+          timeoutMs
+        );
 
-        const msg = data?.error?.message ? String(data.error.message) : `Erreur Gemini (${resp.status})`;
-        lastErr = { status: resp.status, message: msg };
+        data = await resp.json().catch(() => null);
+      } catch (e: any) {
+        const msg = String(e?.message ?? e);
+        lastErr = { status: 504, message: msg };
+        devLog(`timeout/error keyIndex=${keyIndex} model=${model} -> ${msg}`);
+        continue; // essaye modèle/clé suivante
+      }
 
-        if (resp.status === 404) break;
-
-        if (resp.status === 401 || resp.status === 403) {
-          setKeyCooldown(keyIndex, "auth");
-          break;
-        }
-
-        if (resp.status === 429 || isQuotaError(msg)) {
-          setKeyCooldown(keyIndex, "quota");
-          break;
-        }
-
-        if (resp.status === 503) {
-          setKeyCooldown(keyIndex, "overloaded");
-          if (attempt === 0) {
-            await sleep(900);
-            continue;
-          }
-          break;
-        }
-
-        if (isRetryableStatus(resp.status) && attempt === 0) {
-          await sleep(900);
+      if (resp.ok) {
+        const text = extractTextFromGemini(data);
+        if (!text) {
+          lastErr = { status: 502, message: "Réponse Gemini vide ou inattendue." };
+          devLog(`empty response model=${model} keyIndex=${keyIndex}`);
           continue;
         }
-
-        setKeyCooldown(keyIndex, "other");
-        break;
+        devLog(`ok model=${model} keyIndex=${keyIndex} chars=${text.length}`);
+        return { text, model, keyIndex };
       }
-    }
-  }
 
-  const allInCooldown = keys.every((_, idx) => isKeyInCooldown(idx));
-  if (allInCooldown) {
-    let bestIdx = 0;
-    let bestUntil = Infinity;
-    for (let i = 0; i < keys.length; i++) {
-      const until = keyCooldownUntil.get(i) ?? 0;
-      if (until < bestUntil) {
-        bestUntil = until;
-        bestIdx = i;
-      }
+      const msg = data?.error?.message ? String(data.error.message) : `Erreur Gemini (${resp.status})`;
+      lastErr = { status: resp.status, message: msg };
+      devLog(`http ${resp.status} model=${model} keyIndex=${keyIndex} -> ${msg}`);
+
+      // quota -> essayer autre clé
+      if (resp.status === 429 || isQuotaError(msg)) break;
+
+      // auth -> essayer autre clé
+      if (resp.status === 401 || resp.status === 403) break;
+
+      // 404 -> modèle indispo -> essayer fallback modèle
+      if (resp.status === 404) continue;
+
+      // autres erreurs -> essayer fallback modèle (continue)
+      continue;
     }
-    keyCooldownUntil.delete(bestIdx);
-    return callLLM(prompt, opts);
   }
 
   const s = lastErr?.status ?? 500;
   const m = lastErr?.message ?? "Erreur inconnue";
-  throw new Error(`Toutes les clés ont échoué. Dernière erreur (${s}) : ${m}`);
+
+  if (s === 429 || isQuotaError(m)) {
+    throw new Error(`Quota Gemini gratuit épuisé / indisponible. (${s}) ${m}`);
+  }
+
+  throw new Error(`Appel Gemini échoué. Dernière erreur (${s}) : ${m}`);
 }

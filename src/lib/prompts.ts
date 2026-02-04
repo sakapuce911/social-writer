@@ -11,82 +11,63 @@ export const captionPrompt = (args: {
 }) => {
   const { subject, language, objective } = args;
 
-  // ✅ CTA (question ouverte > 10 mots)
-  const objectiveCTA: Record<Objective, string[]> = {
-    vendre: [
-      "Qu’est-ce qui vous fait passer de “intéressant” à “j’achète” sans promo, dans votre contexte précis ?",
-      "Quelle objection revient le plus avant d’acheter, et comment vous la traitez concrètement ?",
-      "Si vous deviez choisir 1 critère non négociable avant d’acheter, lequel et pourquoi ?",
-    ],
-    attirer: [
-      "Quelle erreur voyez-vous le plus souvent sur ce sujet, et quel exemple concret vous vient en tête ?",
-      "Qu’est-ce qui vous a surpris récemment sur ce sujet, et qu’est-ce que ça a changé pour vous ?",
-      "Sur ce point, vous êtes plutôt “tester vite” ou “sécuriser avant d’agir” — dans quel cas, et pourquoi ?",
-    ],
-    éduquer: [
-      "Quelle étape vous bloque le plus pour appliquer ça, et quel détail rend ça difficile chez vous ?",
-      "Qu’est-ce qui a le plus amélioré vos résultats ici, et comment l’avez-vous mis en place concrètement ?",
-      "Si vous deviez l’expliquer à un collègue en 30 secondes, vous diriez quoi exactement ?",
-    ],
-    recruter: [
-      "Quel signal vous donne le plus confiance chez un candidat, et quel exemple vous a marqué récemment ?",
-      "Quelle compétence est sous-estimée aujourd’hui, et comment la repérez-vous en entretien ?",
-      "Qu’est-ce qui fait vraiment la différence sur un profil, selon votre contexte et vos exigences ?",
-    ],
-    inspirer: [
-      "Quel déclic concret a changé votre façon d’agir, et qu’avez-vous fait dès le lendemain (vraiment) ?",
-      "Quel choix discret mais difficile vous a fait grandir, et qu’est-ce que ça a débloqué ensuite ?",
-      "Quelle action simple cette semaine vous rend fier, et quel impact concret ça a eu autour de vous ?",
-    ],
+  const objectiveStyle: Record<Objective, string> = {
+    vendre:
+      "STYLE VENDRE: bénéfices concrets, preuve, réassurance, différenciation claire, objection handling doux. Ton direct, orienté décision. Pas agressif.",
+    attirer:
+      "STYLE ATTIRER: conversation early, opinion claire, tension cognitive, contre-intuitif, exemple réel. Phrases courtes. Ton humain, pas coach.",
+    éduquer:
+      "STYLE ÉDUQUER: mini-framework pédagogique 3–5 points, étapes actionnables, erreurs fréquentes + correctifs. Très sauvegardable.",
+    recruter:
+      "STYLE RECRUTER: critères, signaux, attentes, erreurs de recrutement, exemples terrain. Ton pro, précis, humain, inclusif.",
+    inspirer:
+      "STYLE INSPIRER: vécu court + déclic + action concrète + leçon spécifique. " +
+      "Autorisé: 'soyons honnêtes' si pertinent. Zéro motivation creuse, zéro phrases génériques.",
   };
 
-  // ✅ Angle (les 5 objectifs doivent produire des posts différents)
-  const objectiveAngle: Record<Objective, string> = {
-    vendre: "ANGLE VENDRE : valeur, différenciation, coût d’inaction, objections, preuves, comparaison.",
-    attirer: "ANGLE ATTIRER : opinion claire, erreur fréquente, contre-intuitif, tension cognitive, exemple réel.",
-    éduquer: "ANGLE ÉDUQUER : méthode étape-par-étape, mini-framework pédagogique, erreurs + correctifs, concret.",
-    recruter: "ANGLE RECRUTER : signaux de sélection, attentes, erreurs de recrutement, critères, exemples terrain.",
-    inspirer: "ANGLE INSPIRER : déclic vécu + action concrète + leçon précise (pas de motivation creuse).",
-  };
-
-  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-  const cta = pick(objectiveCTA[objective] ?? objectiveCTA.attirer);
-
-  /**
-   * IMPORTANT : ton audit prend le HOOK = 1ère ligne
-   * => on force une 1ère ligne 150–180 chars.
-   * Et on force paragraphes courts + framework 3–5 points.
-   */
   return `
-Tu es un expert LinkedIn. Tu dois produire un post qui passe un audit strict.
+Tu es un expert LinkedIn. Tu écris un post conçu pour maximiser la lecture, la rétention et les commentaires qualitatifs.
 
 LANGUE: ${language}
 SUJET: """${subject}"""
 OBJECTIF: ${objective}
-${objectiveAngle[objective]}
+${objectiveStyle[objective]}
 
-RÈGLES OBLIGATOIRES POUR L’AUDIT:
+RÈGLES LINKEDIN (OBLIGATOIRES)
+- Tout doit être généré par l’IA (aucun contenu pré-écrit, pas de CTA imposée depuis le code).
+- Ton naturel, crédible, humain. Si utile: "soyons honnêtes".
+- Ne pas utiliser de jargon type "KPI" sauf si le sujet l'impose explicitement.
 - Ne mentionne PAS "2026" (sauf si le sujet l'exige explicitement).
-- La 1ère ligne (HOOK) doit faire ENTRE 150 ET 180 CARACTÈRES (inclus). C’est CRITIQUE.
-- Hook = 1 seule ligne (pas de retour à la ligne dans le hook). Ensuite, saute une ligne vide.
-- Caption doit faire environ 900 à 1300 caractères.
-- Paragraphes très courts: 1–2 lignes. Utilise des lignes vides entre paragraphes.
-- Donne un CONTEXTE RÉEL (observation, mini-histoire, chiffre, avant/après).
-- Donne un mini-framework de 3 à 5 points MAX en liste (utilise "-" en début de ligne).
 - AUCUN lien / AUCUNE URL.
-- CTA = UNE question ouverte (réponse développée > 10 mots) et doit finir par "?".
 
-HASHTAGS:
-- 3 à 5 hashtags MAX, de niche, en bas, format "#tag".
+CONTRAINTES DE STRUCTURE
+- Tu dois répondre UNIQUEMENT avec un JSON strict (aucun texte autour, aucun markdown, aucun bloc \`\`\`).
+- "cta" doit être une question (pas une phrase).
+- La "caption" doit se terminer par "?" OU la "cta" doit se terminer par "?" (au moins un des deux).
+- Le champ "caption" commence par le HOOK en 1ère ligne, puis 1 ligne vide, puis le reste.
+- HOOK (1ère ligne de "caption"):
+  * commence OBLIGATOIREMENT par "Vous"
+  * doit inclure AU MOINS 1 des 2 éléments: (un chiffre) OU (une question ?)
+  * longueur: ENTRE 150 ET 180 caractères (inclus)
+  * 1 seule ligne
+- Caption (hors CTA/hashtags): environ 900 à 1300 caractères.
+- Paragraphes très courts (1–2 lignes) + ligne vide entre paragraphes.
+- 1 seule idée principale (pas de dispersion).
+- Contexte réel: observation / mini-histoire / avant-après,
+  MAIS n’invente pas de chiffres précis si le sujet n’en fournit pas.
+- Inclure un mini-framework de 3 à 5 points MAX en liste, chaque point commence par "- " (tiret + espace).
+- Fin de caption : une question ouverte (pour déclencher des commentaires qualitatifs).
 
-FORMAT DE SORTIE STRICT (pas de markdown):
-CAPTION:
-(ici la caption complète, avec le hook en 1ère ligne, puis paragraphes, puis la liste 3–5 points)
+CONTRAINTES CTA + HASHTAGS
+- "cta" doit être une question ouverte, qui pousse à une réponse développée (> 10 mots).
+- La CTA doit se terminer par "?".
+- Hashtags: 3 à 5, uniques, de niche, format "#tag", sur une seule ligne.
 
-CTA:
-${cta}
-
-HASHTAGS:
-(3 à 5 hashtags, une seule ligne)
+SORTIE ATTENDUE (JSON strict):
+{
+  "caption": "HOOK (150–180 chars)\\n\\n...caption...?",
+  "cta": "question ouverte (générée par l’IA) ?",
+  "hashtags": "#tag1 #tag2 #tag3"
+}
 `.trim();
 };

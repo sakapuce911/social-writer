@@ -290,12 +290,7 @@ function LinkedInPreview(props: { caption: string; cta: string; hashtags: string
       </div>
 
       {showMore && (
-        <button
-          className="btn"
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          style={{ marginTop: 10 }}
-        >
+        <button className="btn" type="button" onClick={() => setExpanded((v) => !v)} style={{ marginTop: 10 }}>
           {expanded ? "Réduire" : "Voir plus"}
         </button>
       )}
@@ -493,10 +488,11 @@ export default function Page() {
   const proBlocked = useMemo(() => (audit ? audit.score < PRO_MIN_SCORE : false), [audit]);
   const remaining = Math.max(0, QUOTA_DAILY - aiCount);
 
-  // ✅ Génération IA (déjà existant chez toi)
+  // ✅ Génération IA (corrigée pour gérer {error, code} renvoyé par /api/generate)
   async function generateWithAI() {
     setError(null);
 
+    // quota UI local (ta règle produit)
     if (aiCount >= QUOTA_DAILY) {
       setError(`Quota IA atteint (${QUOTA_DAILY}/jour). Réessaie demain.`);
       showToast("Quota IA atteint ⚠️");
@@ -512,21 +508,38 @@ export default function Page() {
         body: JSON.stringify({ subject, language, objective, network }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        const code = String(data?.code ?? "");
         const msg = String(data?.error || "Erreur génération");
-        if (res.status === 429 || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("resource_exhausted")) {
-          setError(`Quota IA atteint (${QUOTA_DAILY}/jour). Réessaie demain.`);
-          showToast("Quota IA atteint ⚠️");
+
+        // quota provider (réseau/clé)
+        if (res.status === 429 || code === "quota" || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("resource_exhausted")) {
+          setError("Quota API IA atteint (côté provider). Réessaie plus tard ou change de clé.");
+          showToast("Quota API IA ⚠️");
           return;
         }
+
+        if (res.status === 504 || code === "timeout" || msg.toLowerCase().includes("timeout")) {
+          setError("Timeout IA : le modèle a mis trop de temps. Réessaie.");
+          showToast("Timeout IA ⚠️");
+          return;
+        }
+
+        if (res.status === 502 || code === "bad_output") {
+          setError("L’IA a renvoyé un format invalide. Réessaie (ou change légèrement le sujet).");
+          showToast("Format IA invalide ⚠️");
+          return;
+        }
+
         throw new Error(msg);
       }
 
-      const raw = String(data.output ?? "").trim();
-      const parsed = normalizeFromLLM(raw);
+      const raw = String(data?.output ?? "").trim();
+      if (!raw) throw new Error("Réponse vide.");
 
+      const parsed = normalizeFromLLM(raw);
       parsed.hashtags = normalizeHashtagsInput(parsed.hashtags);
       setResult(parsed);
 
@@ -584,58 +597,58 @@ export default function Page() {
 
   // ✅ Auto-fix IA (IMPORTANT)
   const onAutoFix = async () => {
-  if (!result) return;
+    if (!result) return;
 
-  setError(null);
-  setLoading(true);
+    setError(null);
+    setLoading(true);
 
-  try {
-    const res = await fetch("/api/autofix", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subject,
-        language,
-        current: {
-          caption: result.caption,
-          cta: result.cta,
-          hashtags: result.hashtags,
-        },
-        audit, // on envoie les warnings + score à Gemini
-      }),
-    });
+    try {
+      const res = await fetch("/api/autofix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject,
+          language,
+          current: {
+            caption: result.caption,
+            cta: result.cta,
+            hashtags: result.hashtags,
+          },
+          audit, // on envoie les warnings + score à Gemini
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      const msg = String(data?.error || "Erreur Auto-fix");
-      throw new Error(msg);
+      if (!res.ok) {
+        const msg = String(data?.error || "Erreur Auto-fix");
+        throw new Error(msg);
+      }
+
+      const out = data?.output;
+      if (!out?.caption && !out?.cta && !out?.hashtags) {
+        throw new Error("Auto-fix: réponse vide.");
+      }
+
+      setResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              caption: String(out.caption ?? prev.caption),
+              cta: String(out.cta ?? prev.cta),
+              hashtags: String(out.hashtags ?? prev.hashtags),
+            }
+          : prev
+      );
+
+      showToast("Auto-fix IA appliqué ✅");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "Erreur Auto-fix");
+    } finally {
+      setLoading(false);
     }
-
-    const out = data?.output;
-    if (!out?.caption && !out?.cta && !out?.hashtags) {
-      throw new Error("Auto-fix: réponse vide.");
-    }
-
-    setResult((prev) =>
-      prev
-        ? {
-            ...prev,
-            caption: String(out.caption ?? prev.caption),
-            cta: String(out.cta ?? prev.cta),
-            hashtags: String(out.hashtags ?? prev.hashtags),
-          }
-        : prev
-    );
-
-    showToast("Auto-fix IA appliqué ✅");
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    setError(msg || "Erreur Auto-fix");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   if (!mounted) return null;
 
