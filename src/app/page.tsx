@@ -668,7 +668,7 @@ export default function Page() {
 
                     <div className="heroPreviewFrame">
                       <LinkedInPreview
-                        variant={isMobilePreview ? "mobile" : "default"}
+                        variant={isMobilePreview ? "mobile" : "desktop"}
                         caption={
                           result?.caption ||
                           "Vous perdez du temps sans vous en rendre compte.\n\nVoici 3 micro-changements qui doublent votre focus (sans travailler plus).\n\n1) …\n2) …\n3) …\n\nVous avez plutôt un problème de focus ou de discipline ?"
