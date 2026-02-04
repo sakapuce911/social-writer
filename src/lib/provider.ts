@@ -5,6 +5,9 @@ type CallOpts = {
   temperature?: number;
   maxOutputTokens?: number;
   system?: string;
+
+  // ✅ NEW: force JSON (Gemini)
+  responseMimeType?: "application/json" | "text/plain";
 };
 
 type CallResult = {
@@ -40,7 +43,6 @@ function extractTextFromGemini(data: any): string {
 }
 
 function isRetryableStatus(status: number) {
-  // 503 overloaded / 500 server / 429 rate-limit
   return status === 503 || status === 500 || status === 429;
 }
 
@@ -55,7 +57,6 @@ function isQuotaError(msg: string) {
 }
 
 function normalizeBaseUrl(raw: string) {
-  // On veut: https://generativelanguage.googleapis.com/v1beta
   let base = (raw || "https://generativelanguage.googleapis.com/v1beta").trim();
   base = base.replace(/\/+$/, "");
   if (!/\/v1beta$/i.test(base)) base = base + "/v1beta";
@@ -63,11 +64,6 @@ function normalizeBaseUrl(raw: string) {
 }
 
 function buildModelsList(): string[] {
-  // Priorité:
-  // 1) LLM_MODELS="m1,m2,m3"
-  // 2) LLM_MODEL_PRIMARY + LLM_MODEL_FALLBACKS
-  // 3) LLM_MODEL
-  // 4) défaut
   const list = getEnvList("LLM_MODELS");
   if (list.length > 0) return list;
 
@@ -81,7 +77,7 @@ function buildModelsList(): string[] {
   return ["gemini-2.0-flash", "gemini-1.5-flash"];
 }
 
-// Hash simple (FNV-1a) pour un "start index" stable sans crypto
+// Hash simple (FNV-1a)
 function fnv1a32(input: string) {
   let h = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
@@ -97,11 +93,7 @@ function pickStartIndex(keys: string[], prompt: string) {
   return fnv1a32(prompt) % keys.length;
 }
 
-/**
- * ✅ Blacklist/Cooldown des clés en mémoire (par instance).
- * keyId = index dans LLM_API_KEYS.
- * value = timestamp (ms) jusqu'auquel la clé est en cooldown.
- */
+/** Cooldown par instance */
 const keyCooldownUntil = new Map<number, number>();
 
 function nowMs() {
@@ -109,11 +101,6 @@ function nowMs() {
 }
 
 function getCooldownMs(kind: "quota" | "auth" | "overloaded" | "other") {
-  // Valeurs par défaut (tu peux les override via .env)
-  // - quota: 10 min
-  // - auth (401/403): 60 min (souvent clé morte)
-  // - overloaded: 15 sec
-  // - other: 60 sec
   const env = (name: string) => {
     const v = Number(process.env[name] ?? "");
     return Number.isFinite(v) && v > 0 ? v : null;
@@ -144,10 +131,8 @@ function isKeyInCooldown(keyIndex: number) {
 }
 
 function setKeyCooldown(keyIndex: number, kind: "quota" | "auth" | "overloaded" | "other") {
-  const ms = getCooldownMs(kind);
-  const until = nowMs() + ms;
+  const until = nowMs() + getCooldownMs(kind);
   const prev = keyCooldownUntil.get(keyIndex) ?? 0;
-  // on prolonge si déjà en cooldown mais moins long
   if (until > prev) keyCooldownUntil.set(keyIndex, until);
 }
 
@@ -172,11 +157,8 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
 
   const start = pickStartIndex(keys, prompt);
 
-  // On tente toutes les clés (en sautant celles en cooldown)
   for (let ki = 0; ki < keys.length; ki++) {
     const keyIndex = (start + ki) % keys.length;
-
-    // ✅ skip si cooldown
     if (isKeyInCooldown(keyIndex)) continue;
 
     const key = keys[keyIndex];
@@ -191,7 +173,11 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
           body: JSON.stringify({
             ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { temperature, maxOutputTokens },
+            generationConfig: {
+              temperature,
+              maxOutputTokens,
+              ...(opts.responseMimeType ? { responseMimeType: opts.responseMimeType } : {}),
+            },
           }),
         });
 
@@ -201,7 +187,7 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
           const text = extractTextFromGemini(data);
           if (!text) {
             lastErr = { status: 502, message: "Réponse Gemini vide ou inattendue." };
-            break; // modèle suivant
+            break;
           }
           return { text, model, keyIndex };
         }
@@ -209,22 +195,18 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
         const msg = data?.error?.message ? String(data.error.message) : `Erreur Gemini (${resp.status})`;
         lastErr = { status: resp.status, message: msg };
 
-        // 404 => modèle invalide => modèle suivant
         if (resp.status === 404) break;
 
-        // ✅ 401/403 => clé morte / non autorisée => cooldown long + clé suivante
         if (resp.status === 401 || resp.status === 403) {
           setKeyCooldown(keyIndex, "auth");
           break;
         }
 
-        // ✅ quota / rate-limit => cooldown quota + clé suivante
         if (resp.status === 429 || isQuotaError(msg)) {
           setKeyCooldown(keyIndex, "quota");
           break;
         }
 
-        // ✅ overloaded => petit cooldown + retry 1 fois
         if (resp.status === 503) {
           setKeyCooldown(keyIndex, "overloaded");
           if (attempt === 0) {
@@ -234,27 +216,19 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
           break;
         }
 
-        // 500/429 retryable => retry 1 fois, sinon stop
         if (isRetryableStatus(resp.status) && attempt === 0) {
           await sleep(900);
           continue;
         }
 
-        // Autres erreurs => cooldown léger pour éviter boucle
         setKeyCooldown(keyIndex, "other");
         break;
       }
     }
-
-    // Si on arrive ici, la clé n'a pas réussi (tous modèles/attempts)
-    // On essaie la clé suivante…
   }
 
-  // Si toutes les clés sont en cooldown et qu'on a tout sauté, on force un essai:
-  // (sinon on pourrait rester bloqué si cooldown trop long)
   const allInCooldown = keys.every((_, idx) => isKeyInCooldown(idx));
   if (allInCooldown) {
-    // on "débloque" la clé la plus proche de fin de cooldown
     let bestIdx = 0;
     let bestUntil = Infinity;
     for (let i = 0; i < keys.length; i++) {
@@ -265,7 +239,6 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
       }
     }
     keyCooldownUntil.delete(bestIdx);
-    // Une relance rapide
     return callLLM(prompt, opts);
   }
 

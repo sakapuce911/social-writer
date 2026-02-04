@@ -1,169 +1,282 @@
-// src/lib/prompts.ts
+// src/app/api/generate/route.ts
 
-export type Objective = "vendre" | "attirer" | "éduquer" | "recruter" | "inspirer";
-export type Network = "linkedin";
+import { NextResponse } from "next/server";
+import { callLLM } from "@/lib/provider";
+import { captionPrompt, type Objective } from "@/lib/prompts";
 
-/**
- * Prompt LinkedIn 2026 (description de publication)
- * IMPORTANT: Ce prompt est encapsulé par l’API qui force une réponse JSON.
- * => Donc ici, on ne met PAS de "CAPTION:" / "CTA:" / "HASHTAGS:" dans le texte.
- *
- * Objectif 2026:
- * - Maximiser dwell time (lecture), sauvegardes, commentaires qualitatifs
- * - Éviter signaux négatifs (spam, CTA artificiels, liens)
- */
-export const captionPrompt = (args: {
-  subject: string;
-  language: string; // "Français" | "Anglais" (ou tout texte)
-  objective: Objective;
-  network: Network; // LinkedIn only
-}) => {
-  const { subject, language, objective } = args;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  /**
-   * ✅ CTA 2026 (NON ARTIFICIELS)
-   * - On force une question finale ouverte qui appelle une réponse développée
-   * - Pas de “Like si…”, pas de “Commente OUI/NON”, pas de “DM ‘OFFRE’”
-   * - Pour vendre/recruter: on invite à partager le contexte/critères (conversation) au lieu de pousser une action agressive
-   */
-  const objectiveCTA: Record<Objective, string[]> = {
-    vendre: [
-      "Si vous deviez choisir 1 critère non négociable avant d’acheter, ce serait lequel — et pourquoi ?",
-      "Qu’est-ce qui vous fait passer de “intéressant” à “je veux l’acheter” (sans promo) ?",
-      "Quelle objection vous bloque le plus souvent avant de vous décider ?",
-    ],
-    attirer: [
-      "Qu’est-ce qui vous a le plus surpris récemment sur ce sujet, et pourquoi ?",
-      "Selon vous, quelle est l’erreur la plus fréquente ici (avec un exemple) ?",
-      "Vous êtes plutôt “tester vite” ou “sécuriser avant d’agir” — et pourquoi ?",
-    ],
-    éduquer: [
-      "Quelle étape vous semble la plus difficile à appliquer, concrètement, dans votre contexte ?",
-      "Quelle règle vous a le plus aidé… ou le plus freiné ? Expliquez avec un exemple.",
-      "Si vous deviez résumer la leçon en 1 phrase actionnable, ce serait quoi ?",
-    ],
-    recruter: [
-      "Quand vous recrutez, quel signal vous donne le plus confiance (exemple concret) ?",
-      "Côté candidat, qu’est-ce qui fait vraiment la différence dans votre secteur ?",
-      "Quelle compétence est sous-estimée aujourd’hui — et pourquoi ?",
-    ],
-    inspirer: [
-      "Quelle phrase vous auriez aimé entendre plus tôt dans votre parcours — et pourquoi ?",
-      "Quel petit déclic a eu le plus d’impact chez vous (même si ça paraît simple) ?",
-      "Qu’est-ce que vous choisissez de faire différemment cette semaine, concrètement ?",
-    ],
-  };
+type Lang = "fr" | "en";
+type Network = "linkedin";
 
-  const pickCTA = (obj: Objective) => {
-    const list = objectiveCTA[obj] ?? objectiveCTA.attirer;
-    return list[0];
-  };
+function safeLang(input: unknown): Lang {
+  const v = String(input ?? "").trim().toLowerCase();
+  return v === "en" ? "en" : "fr";
+}
 
-  /**
-   * ✅ RÈGLES LINKEDIN 2026 (Description)
-   * - Hook ultra-optimisé pour “Voir plus” (150–180 caractères)
-   * - 1 seule idée (angle précis)
-   * - Profondeur > généralités
-   * - Lisibilité mobile (paragraphes très courts)
-   * - Question finale ouverte (réponse > 10 mots)
-   * - Hashtags 3–5 max, niche, fin de post
-   * - AUCUN lien, AUCUNE URL, AUCUN appel artificiel
-   */
-  const rulesLinkedIn2026 = `
-RÈGLES LINKEDIN 2026 (OBLIGATOIRES):
-- Une seule idée centrale: choisis un angle précis. Si le sujet est trop large, restreins-le automatiquement.
-- Hook: 150 à 180 caractères MAX, en 1–2 lignes, très percutant, qui donne envie de cliquer “Voir plus”.
-- Pas de citations, pas de banalités, pas de “conseils génériques”.
-- Profondeur: donne un insight non évident + un mini-framework (3 à 5 points MAX) OU une erreur fréquente expliquée OU un avant/après.
-- Lisibilité: paragraphes de 1–2 lignes, sauts de ligne fréquents, pas de bloc dense.
-- CTA: termine par UNE question ouverte intelligente (réponse développée, >10 mots). Pas de “like si…”, pas de “commente OUI/NON”, pas de “DM ‘OFFRE’”.
-- Liens: AUCUN lien / URL dans le texte.
-- Hashtags: 3 à 5 maximum, très ciblés, tout en bas.
-- Longueur: vise ~900 à 1 300 caractères (lecture mobile + dwell time).
+function safeObjective(input: unknown): Objective {
+  const v = String(input ?? "").trim().toLowerCase();
+  if (v === "vendre") return "vendre";
+  if (v === "attirer") return "attirer";
+  if (v === "recruter") return "recruter";
+  if (v === "inspirer") return "inspirer";
+  if (v === "éduquer" || v === "eduquer") return "éduquer";
+  return "attirer";
+}
+
+function stripCodeFences(s: string) {
+  return (s ?? "")
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+}
+
+function extractFirstJSONObject(text: string) {
+  const t = String(text ?? "");
+  const first = t.indexOf("{");
+  const last = t.lastIndexOf("}");
+  if (first !== -1 && last !== -1 && last > first) return t.slice(first, last + 1).trim();
+  return "";
+}
+
+function safeJsonParse<T = any>(s: string): T | null {
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeHashtags(h: unknown): string[] {
+  if (Array.isArray(h)) {
+    const clean = h
+      .map((x) => String(x ?? "").trim())
+      .filter(Boolean)
+      .map((t) => (t.startsWith("#") ? t : `#${t}`))
+      .map((t) => t.replace(/\s+/g, "").trim())
+      .filter((t) => /^#[\p{L}\p{N}_]+$/u.test(t));
+    return Array.from(new Set(clean)).slice(0, 5);
+  }
+
+  const raw = String(h ?? "").trim();
+  if (!raw) return [];
+  const found = raw.match(/#[\p{L}\p{N}_]+/gu) ?? [];
+  return Array.from(new Set(found)).slice(0, 5);
+}
+
+function isValidLLMJson(text: string): boolean {
+  const obj = safeJsonParse<any>(text);
+  if (!obj) return false;
+  const captionOk = typeof obj?.caption === "string" && String(obj.caption).trim().length > 0;
+  const ctaOk = typeof obj?.cta === "string" && String(obj.cta).trim().length > 0;
+  const hashtagsOk = Array.isArray(obj?.hashtags) || typeof obj?.hashtags === "string";
+  return Boolean(captionOk && ctaOk && hashtagsOk);
+}
+
+function clean(obj: any) {
+  let caption = String(obj?.caption ?? "").trim();
+  let cta = String(obj?.cta ?? "").trim();
+  const hashtags = normalizeHashtags(obj?.hashtags);
+
+  // sécurité anti-"2026"
+  caption = caption.replace(/\b2026\b/g, "").replace(/\s{2,}/g, " ").trim();
+
+  return { caption, cta, hashtags };
+}
+
+function firstNonEmptyLine(text: string) {
+  return (text.split("\n").find((l) => l.trim().length > 0) ?? "").trim();
+}
+
+function scoreCompliance(caption: string, cta: string, hashtags: string[]) {
+  const hook = firstNonEmptyLine(caption);
+  const hookLen = hook.length;
+
+  const hasBullets = /(^|\n)\s*[-•–]\s+/.test(caption);
+  const lines = caption.split("\n").map((l) => l.trim()).filter(Boolean);
+  const len = caption.length;
+
+  const ctaOk = cta.trim().endsWith("?") || caption.trim().endsWith("?");
+  const hashtagsOk = hashtags.length >= 3 && hashtags.length <= 5;
+
+  // on vise “parfait” -> critères stricts
+  const ok =
+    hook.startsWith("Vous") &&
+    hookLen >= 150 &&
+    hookLen <= 180 &&
+    len >= 850 &&
+    len <= 1400 &&
+    hasBullets &&
+    lines.length >= 7 &&
+    ctaOk &&
+    hashtagsOk &&
+    !/\b2026\b/.test(caption);
+
+  return { ok, hookLen, len, hasBullets, linesCount: lines.length, ctaOk, hashtagsOk };
+}
+
+/** Cache 6h (par instance) */
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const cache = new Map<string, { until: number; payload: any }>();
+
+function cacheKey(subject: string, lang: Lang, objective: Objective) {
+  return `${lang}|${objective}|${subject}`.toLowerCase();
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    const subject = String(body?.subject ?? "").trim();
+    if (!subject) return NextResponse.json({ error: "Le sujet est obligatoire." }, { status: 400 });
+
+    const lang = safeLang(body?.language);
+    const objective = safeObjective(body?.objective);
+    const network: Network = "linkedin";
+
+    // ✅ cache anti-gaspillage
+    const key = cacheKey(subject, lang, objective);
+    const hit = cache.get(key);
+    if (hit && hit.until > Date.now()) {
+      return NextResponse.json({ output: JSON.stringify(hit.payload) });
+    } else if (hit) {
+      cache.delete(key);
+    }
+
+    const basePrompt = captionPrompt({
+      subject,
+      language: lang === "en" ? "English" : "French",
+      objective,
+      network,
+    });
+
+    const jsonPrompt = `
+${basePrompt}
+
+IMPORTANT (FORMAT DE SORTIE):
+- Réponds UNIQUEMENT avec un JSON valide (pas de markdown, pas de texte autour).
+- Utilise des guillemets doubles ASCII (") uniquement.
+- Structure EXACTE:
+{
+  "caption": "string",
+  "cta": "string",
+  "hashtags": ["#tag1", "#tag2", "#tag3"]
+}
+
+RAPPEL:
+- Interdit de mentionner "2026" sauf si le sujet l'exige.
+- Hook (1ère ligne) 150–180 caractères, commence par "Vous".
+- Longueur caption ~900–1300 caractères.
+- Framework (3–5 points) obligatoire.
 `.trim();
 
-  /**
-   * ✅ “SEO” version LinkedIn (sémantique, pas keyword stuffing)
-   * On garde l’idée “mots-clés” mais en mode 2026:
-   * - Cohérence sémantique
-   * - Vocabulaire de niche
-   * - Zéro répétition forcée
-   */
-  const semanticRules = `
-RÈGLES SÉMANTIQUES (LINKEDIN 2026):
-- Identifie 1 mot-clé principal lié au sujet + 5 à 10 termes secondaires (synonymes, variantes, jargon métier, outils, contexte).
-- Intègre ces termes naturellement (sans répétition forcée).
-- Chaque paragraphe doit contenir au moins:
-  • 1 terme (principal OU secondaire)
-  • + 1 élément concret (ex: chiffre, exemple, situation, outil, contrainte, “avant/après”).
-- Interdiction du “keyword stuffing”: priorité à la fluidité et au sens.
-- Le post doit faire comprendre implicitement l’audience visée (rôle/secteur/niveau) sans lister des personas.
+    // 1) appel principal (force JSON côté Gemini)
+    const r = await callLLM(jsonPrompt, {
+      temperature: 0.25,
+      maxOutputTokens: 1100,
+      responseMimeType: "application/json",
+    });
+
+    let raw = stripCodeFences(String((r as any)?.text ?? "")).trim();
+    let candidate = raw;
+
+    if (!isValidLLMJson(candidate)) {
+      const embedded = extractFirstJSONObject(candidate);
+      if (embedded) candidate = embedded;
+    }
+
+    // si JSON invalide -> 2) repair UNIQUE (1 seul retry max)
+    if (!isValidLLMJson(candidate)) {
+      const repairPrompt = `
+Tu dois répondre UNIQUEMENT avec un JSON strict valide (aucun texte autour).
+Format:
+{"caption":"...","cta":"...","hashtags":["#a","#b","#c"]}
+
+Règles:
+- caption non vide ~900–1300 caractères
+- 1ère ligne commence par "Vous" et fait 150–180 caractères
+- framework 3–5 points obligatoire
+- question ouverte finale (cta finit par "?")
+- 3–5 hashtags niche
+- interdit de mentionner "2026" (sauf si le sujet l'exige)
+
+Sujet: ${subject}
+Texte brut à réparer:
+${raw}
 `.trim();
 
-  /**
-   * ✅ STRUCTURE 2026 (description)
-   * 1) Hook (150–180 chars)
-   * 2) Contexte réel (observation/test)
-   * 3) Insight + framework (3–5 points)
-   * 4) Question finale (open-ended)
-   * 5) Hashtags (3–5)
-   */
-  const universal = `
-STRUCTURE OBLIGATOIRE (LINKEDIN 2026):
-1) Hook (150–180 caractères max)
-2) Contexte réel (1–3 paragraphes très courts)
-3) Insight central + mini-framework (3–5 points max) OU erreur fréquente OU avant/après
-4) Question finale ouverte (CTA)
-5) Hashtags (3–5) tout en bas
+      const rr = await callLLM(repairPrompt, {
+        temperature: 0.1,
+        maxOutputTokens: 1100,
+        responseMimeType: "application/json",
+      });
 
-CONTRAINTES IMPORTANTES:
-- Langue: ${language}
-- Sujet: """${subject}"""
-- Objectif: ${objective}
-- Réseau: linkedin
-- Zéro lien / zéro URL / zéro promo agressive
+      const repaired = stripCodeFences(String((rr as any)?.text ?? "")).trim();
+      const embedded2 = extractFirstJSONObject(repaired);
+      candidate = embedded2 || repaired;
+
+      if (!isValidLLMJson(candidate)) {
+        return NextResponse.json(
+          { error: "Le modèle n'a pas renvoyé un JSON valide.", raw: raw.slice(0, 2000) },
+          { status: 502 }
+        );
+      }
+    }
+
+    let out = clean(safeJsonParse(candidate));
+    const check1 = scoreCompliance(out.caption, out.cta, out.hashtags);
+
+    // 3) si pas conforme -> 1 seul appel FIX (max) pour atteindre “parfait”
+    if (!check1.ok) {
+      const fixPrompt = `
+Tu dois AMÉLIORER ce post pour respecter STRICTEMENT les contraintes, sans changer le sujet.
+Tu réponds UNIQUEMENT en JSON strict au format:
+{"caption":"...","cta":"...","hashtags":["#a","#b","#c"]}
+
+Contraintes strictes:
+- Hook (1ère ligne): commence par "Vous" et fait 150–180 caractères EXACT.
+- Caption: 900–1300 caractères.
+- Contexte réel présent (preuve humaine).
+- Framework 3–5 points (liste avec - ou •).
+- Question finale ouverte (cta finit par "?") qui force une réponse développée.
+- 3–5 hashtags niche.
+- Interdit de mentionner "2026" sauf si le sujet l'exige.
+
+Sujet: ${subject}
+
+Post actuel:
+${out.caption}
+
+CTA actuel:
+${out.cta}
+
+Hashtags actuels:
+${out.hashtags.join(" ")}
 `.trim();
 
-  /**
-   * ✅ Auto-contrôle: l’IA doit régénérer si non conforme
-   * (sans le dire dans la réponse finale)
-   */
-  const selfCheck = `
-AUTO-CONTRÔLE (OBLIGATOIRE AVANT RENDU):
-- Le hook fait-il vraiment cliquer “Voir plus” ET fait-il 150–180 caractères max ?
-- Le post traite-t-il UNE seule idée (angle précis) ?
-- Y a-t-il au moins un élément concret (exemple/chiffre/situation) ?
-- Le framework contient-il 3 à 5 points max ?
-- Le texte est-il aéré (paragraphes 1–2 lignes) ?
-- La question finale force-t-elle une réponse développée (>10 mots) ?
-- Y a-t-il 3 à 5 hashtags max, niche, en bas ?
-Si une règle échoue: régénère automatiquement. Ne mentionne jamais ce contrôle.
-`.trim();
+      const fr = await callLLM(fixPrompt, {
+        temperature: 0.15,
+        maxOutputTokens: 1100,
+        responseMimeType: "application/json",
+      });
 
-  const ctaSuggestion = pickCTA(objective);
+      const fixed = stripCodeFences(String((fr as any)?.text ?? "")).trim();
+      const embedded3 = extractFirstJSONObject(fixed);
+      const cand2 = embedded3 || fixed;
 
-  return `
-Tu es un expert en copywriting LinkedIn 2026.
+      if (isValidLLMJson(cand2)) {
+        out = clean(safeJsonParse(cand2));
+      }
+    }
 
-Ta mission:
-- Génère une description de publication LinkedIn optimisée pour l’algorithme 2026:
-  dwell time, sauvegardes, commentaires qualitatifs.
-- Respecte STRICTEMENT les règles ci-dessous.
+    // cache anti-gaspillage (même sujet -> 0 appel)
+    cache.set(key, { until: Date.now() + CACHE_TTL_MS, payload: out });
 
-${universal}
-
-${rulesLinkedIn2026}
-
-${semanticRules}
-
-QUESTION FINALE (exemple à adapter au sujet, doit rester ouverte et intelligente):
-${ctaSuggestion}
-
-${selfCheck}
-
-IMPORTANT FORMAT:
-- Ne mets pas de titres "CAPTION/CTA/HASHTAGS".
-- Donne uniquement le texte final du post + les hashtags à la fin.
-- Aucun commentaire meta, aucune explication.
-`.trim();
-};
+    return NextResponse.json({ output: JSON.stringify(out) });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "Erreur inconnue" }, { status: 500 });
+  }
+}
