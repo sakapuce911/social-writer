@@ -10,11 +10,12 @@ type Lang = "fr" | "en";
 type Network = "linkedin";
 
 function safeLang(input: unknown): Lang {
-  return String(input ?? "").toLowerCase() === "en" ? "en" : "fr";
+  const v = String(input ?? "").trim().toLowerCase();
+  return v === "en" ? "en" : "fr";
 }
 
 function safeObjective(input: unknown): Objective {
-  const v = String(input ?? "").toLowerCase();
+  const v = String(input ?? "").trim().toLowerCase();
   if (v === "vendre") return "vendre";
   if (v === "attirer") return "attirer";
   if (v === "recruter") return "recruter";
@@ -25,55 +26,28 @@ function safeObjective(input: unknown): Objective {
 
 function stripCodeFences(s: string) {
   return (s ?? "")
-    .replace(/^```json/i, "")
-    .replace(/^```/i, "")
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
     .replace(/```$/i, "")
     .trim();
 }
 
-function extractFirstJSONObject(text: string) {
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first !== -1 && last !== -1 && last > first) {
-    return text.slice(first, last + 1);
-  }
-  return null;
-}
-
-function safeJsonParse<T = any>(s: string): T | null {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return null;
-  }
-}
-
-function extractHashtags(text: string): string[] {
-  const found = text.match(/#[\p{L}\p{N}_]+/gu) ?? [];
-  return Array.from(new Set(found)).slice(0, 5);
-}
-
-function extractCTA(text: string): string {
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].endsWith("?")) return lines[i];
-  }
-  return "Quelle est votre expérience concrète sur ce sujet ?";
-}
-
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body) return NextResponse.json({ error: "Body JSON invalide." }, { status: 400 });
 
     const subject = String(body?.subject ?? "").trim();
-    if (!subject) {
-      return NextResponse.json({ error: "Sujet manquant." }, { status: 400 });
-    }
+    if (!subject) return NextResponse.json({ error: "Le sujet est obligatoire." }, { status: 400 });
 
     const lang = safeLang(body?.language);
     const objective = safeObjective(body?.objective);
+
+    // Social Writer = LinkedIn only
     const network: Network = "linkedin";
 
+    // ✅ Prompt "audit-friendly" (format CAPTION/CTA/HASHTAGS)
     const prompt = captionPrompt({
       subject,
       language: lang === "en" ? "English" : "French",
@@ -81,51 +55,13 @@ export async function POST(req: Request) {
       network,
     });
 
-    // 🔥 UN SEUL APPEL IA
-    const r = await callLLM(prompt, {
-      temperature: 0.3,
-      maxOutputTokens: 1100,
-    });
+    // ✅ 1 seul appel IA
+    const r = await callLLM(prompt, { temperature: 0.4, maxOutputTokens: 1200 });
+    const text = stripCodeFences(String((r as any)?.text ?? "")).trim();
 
-    const rawText = stripCodeFences(String((r as any)?.text ?? "")).trim();
-
-    // 1️⃣ Tentative JSON
-    let obj = safeJsonParse<any>(rawText);
-
-    if (!obj) {
-      const extracted = extractFirstJSONObject(rawText);
-      if (extracted) obj = safeJsonParse<any>(extracted);
-    }
-
-    // 2️⃣ Fallback SANS ERREUR
-    let caption: string;
-    let cta: string;
-    let hashtags: string[];
-
-    if (obj && typeof obj.caption === "string") {
-      caption = obj.caption.trim();
-      cta = String(obj.cta ?? extractCTA(caption)).trim();
-      hashtags = Array.isArray(obj.hashtags)
-        ? obj.hashtags.slice(0, 5)
-        : extractHashtags(caption);
-    } else {
-      // 🔒 MODE "ÇA MARCHE TOUJOURS"
-      caption = rawText;
-      cta = extractCTA(rawText);
-      hashtags = extractHashtags(rawText);
-    }
-
-    return NextResponse.json({
-      output: JSON.stringify({
-        caption,
-        cta,
-        hashtags,
-      }),
-    });
+    // ✅ On renvoie tel quel : ton page.tsx sait parser CAPTION/CTA/HASHTAGS
+    return NextResponse.json({ output: text || "CAPTION:\n\nCTA:\nQuelle est votre expérience concrète sur ce sujet ?\n\nHASHTAGS:\n#linkedin #strategiecontenu #personalbranding" });
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Erreur serveur" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: e?.message ?? "Erreur inconnue" }, { status: 500 });
   }
 }
