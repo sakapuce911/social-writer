@@ -220,7 +220,7 @@ export async function POST(req: Request) {
         timeoutMs: 15000,
         forceJson: true,
         system: STRICT_SYSTEM,
-        cacheTtlMs: 0, // ✅ FULL IA (zéro cache)
+        // NOTE: cacheTtlMs supprimé (n'existe pas dans CallOpts côté provider)
       });
 
       const raw = String(r.text ?? "");
