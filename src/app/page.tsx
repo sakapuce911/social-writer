@@ -124,13 +124,19 @@ function scoreBadge(score: number) {
 function splitParagraphs(text: string) {
   const raw = (text ?? "").trim();
   if (!raw) return [];
-  return raw.split(/\n\s*\n+/g).map((p) => p.trim()).filter(Boolean);
+  return raw
+    .split(/\n\s*\n+/g)
+    .map((p) => p.trim())
+    .filter(Boolean);
 }
 
 function getHook(caption: string) {
   const t = (caption ?? "").trim();
   if (!t) return "";
-  const firstLine = t.split("\n").map((s) => s.trim()).find(Boolean) ?? "";
+  const firstLine = t
+    .split("\n")
+    .map((s) => s.trim())
+    .find(Boolean) ?? "";
   return firstLine.trim();
 }
 
@@ -216,8 +222,7 @@ function computeLinkedInAudit(args: {
     if (p.length > 380) tooLong += 1;
     if (p.length <= 240) shortOk += 1;
   }
-  const mobileReadableOk =
-    paragraphs.length === 0 ? false : tooLong === 0 && shortOk / paragraphs.length >= 0.65;
+  const mobileReadableOk = paragraphs.length === 0 ? false : tooLong === 0 && shortOk / paragraphs.length >= 0.65;
 
   const checks: LinkedInChecks = {
     hookLength: hookLengthOk,
@@ -246,11 +251,11 @@ function computeLinkedInAudit(args: {
     else warnings.push(`Hook trop long (${hookLen} caractères) : vise 150–180.`);
   }
 
-  if (!singleIdeaOk)
-    warnings.push("Trop d’éléments : garde 1 seule idée (moins de paragraphes / moins de listes).");
+  if (!singleIdeaOk) warnings.push("Trop d’éléments : garde 1 seule idée (moins de paragraphes / moins de listes).");
   if (!openQuestionOk) warnings.push("Pas de question finale : termine par une question ouverte.");
   if (!hashtagCountOk) warnings.push(`Hashtags : ${hashtagCount} détecté(s). Il en faut 3–5 (de niche).`);
-  if (!mobileReadableOk) warnings.push("Lisibilité mobile : paragraphes trop longs. Fais des blocs courts (1–2 lignes).");
+  if (!mobileReadableOk)
+    warnings.push("Lisibilité mobile : paragraphes trop longs. Fais des blocs courts (1–2 lignes).");
 
   const details: LinkedInDetails = {
     hook,
@@ -363,7 +368,7 @@ export default function Page() {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
 
-  // ✅ Mode Pro
+  // ✅ Mode Pro (INFO uniquement : la copie n’est PLUS bloquée)
   const PRO_MIN_SCORE = 75;
 
   // ✅ IA quota localStorage
@@ -448,8 +453,7 @@ export default function Page() {
   // ✅ Audit temps réel
   const audit = useMemo<LinkedInAudit | null>(() => {
     if (!result) return null;
-    const hasAny =
-      (result.caption ?? "").trim() || (result.cta ?? "").trim() || (result.hashtags ?? "").trim();
+    const hasAny = (result.caption ?? "").trim() || (result.cta ?? "").trim() || (result.hashtags ?? "").trim();
     if (!hasAny) return null;
 
     return computeLinkedInAudit({
@@ -462,7 +466,10 @@ export default function Page() {
   }, [result?.caption, result?.cta, result?.hashtags, subject, language]);
 
   const badge = audit ? scoreBadge(audit.score) : null;
-  const proBlocked = useMemo(() => (audit ? audit.score < PRO_MIN_SCORE : false), [audit]);
+
+  // ✅ IMPORTANT: plus de blocage de copie (on garde juste l’info)
+  const proBlocked = false;
+
   const remaining = Math.max(0, QUOTA_DAILY - aiCount);
 
   /**
@@ -606,8 +613,7 @@ export default function Page() {
       incAiCount();
       showToast(`Généré (${objectiveLabel(obj)}) ✨`);
     } catch (e: any) {
-      const aborted =
-        e?.name === "AbortError" || String(e?.message ?? "").toLowerCase().includes("aborted");
+      const aborted = e?.name === "AbortError" || String(e?.message ?? "").toLowerCase().includes("aborted");
       if (aborted) {
         showToast("Requête annulée");
         return;
@@ -626,10 +632,12 @@ export default function Page() {
 
   const copyAll = () => {
     if (!result) return;
+
+    // ✅ COPIE TOUJOURS AUTORISÉE : on avertit seulement si score < 75
     if (audit && audit.score < PRO_MIN_SCORE) {
-      showToast(`Mode Pro : score < ${PRO_MIN_SCORE}. Corrige avant de copier.`);
-      return;
+      showToast(`Score ${audit.score}/100 : tu peux copier, mais tu peux améliorer avec Auto-fix.`);
     }
+
     const parts = [result.caption, result.cta, result.hashtags].filter(Boolean);
     copy(parts.join("\n\n").trim());
   };
@@ -637,8 +645,7 @@ export default function Page() {
   const copyCaption = () => {
     if (!result) return;
     if (audit && audit.score < PRO_MIN_SCORE) {
-      showToast(`Mode Pro : score < ${PRO_MIN_SCORE}. Corrige avant de copier.`);
-      return;
+      showToast(`Score ${audit.score}/100 : tu peux copier, mais tu peux améliorer avec Auto-fix.`);
     }
     copy(result.caption);
   };
@@ -646,8 +653,7 @@ export default function Page() {
   const copyCTA = () => {
     if (!result) return;
     if (audit && audit.score < PRO_MIN_SCORE) {
-      showToast(`Mode Pro : score < ${PRO_MIN_SCORE}. Corrige avant de copier.`);
-      return;
+      showToast(`Score ${audit.score}/100 : tu peux copier, mais tu peux améliorer avec Auto-fix.`);
     }
     copy(result.cta);
   };
@@ -655,8 +661,7 @@ export default function Page() {
   const copyHashtags = () => {
     if (!result) return;
     if (audit && audit.score < PRO_MIN_SCORE) {
-      showToast(`Mode Pro : score < ${PRO_MIN_SCORE}. Corrige avant de copier.`);
-      return;
+      showToast(`Score ${audit.score}/100 : tu peux copier, mais tu peux améliorer avec Auto-fix.`);
     }
     copy(result.hashtags);
   };
@@ -834,7 +839,7 @@ export default function Page() {
               <div className="heroKicker">
                 <span className="dot" aria-hidden="true" />
                 <span>
-                  <b>LinkedIn uniquement</b> • Mode Pro •{" "}
+                  <b>LinkedIn uniquement</b>   {" "}
                   <span
                     className={objectivePill.cls}
                     style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 10px" }}
@@ -845,7 +850,7 @@ export default function Page() {
               </div>
 
               <h1 className="heroTitle">
-                ÉCRIVEZ DES POSTS <span className="accent">LINKEDIN</span> QUI DÉCLENCHENT DES COMMENTAIRES
+                ÉCRIVEZ DES POSTS <span className="accent">LINKEDIN</span> QUI DÉCLENCHENT DES IMPRÉSSIONS
               </h1>
 
               <p className="heroSub">
@@ -862,9 +867,9 @@ export default function Page() {
               </div>
 
               <div className="statsGrid">
-                <StatCard label="Mode Pro" value="75/100" hint="Copie bloquée si score < 75" />
+                <StatCard label="Mode Pro" value="75/100" hint="Score recommandé" />
                 <StatCard label="Audit" value="Temps réel" hint="Hook • Lisibilité • Hashtags • Question" />
-                <StatCard label="Quota IA" value={`${remaining}/${QUOTA_DAILY}`} hint="Restant aujourd’hui (local UI)" />
+                <StatCard label="Quota IA" value={`${remaining}/${QUOTA_DAILY}`} hint="Restant aujourd’hui" />
               </div>
             </div>
 
@@ -913,9 +918,7 @@ export default function Page() {
         <div className="container">
           <div className="sectionHead">
             <div className="sectionTitle">Fonctions</div>
-            <div className="sectionDesc">
-              Tout est pensé pour LinkedIn : structure, audit, correction, et copier-coller propre.
-            </div>
+            <div className="sectionDesc">Tout est pensé pour LinkedIn : structure, audit, correction, et copier-coller propre.</div>
           </div>
 
           <div className="featuresGrid featuresGrid--ref">
@@ -933,8 +936,8 @@ export default function Page() {
 
             <div className="panel panel--dark" style={{ padding: 18 }}>
               <div className="panelKicker">Mode Pro</div>
-              <div className="panelTitle">Copie bloquée si score &lt; 75</div>
-              <div className="panelDesc">Tu postes uniquement quand c’est suffisamment clean.</div>
+              <div className="panelTitle">Qualité recommandée</div>
+              <div className="panelDesc">Objectif : score ≥ 75 (mais la copie reste autorisée).</div>
             </div>
           </div>
         </div>
@@ -969,11 +972,7 @@ export default function Page() {
                 <div className="row">
                   <div className="field">
                     <div className="field__label">Langue</div>
-                    <select
-                      className="input input--dark"
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value as Lang)}
-                    >
+                    <select className="input input--dark" value={language} onChange={(e) => setLanguage(e.target.value as Lang)}>
                       <option value="fr">Français</option>
                       <option value="en">Anglais</option>
                     </select>
@@ -981,11 +980,7 @@ export default function Page() {
 
                   <div className="field">
                     <div className="field__label">Style</div>
-                    <select
-                      className="input input--dark"
-                      value={objective}
-                      onChange={(e) => setObjective(e.target.value as Objective)}
-                    >
+                    <select className="input input--dark" value={objective} onChange={(e) => setObjective(e.target.value as Objective)}>
                       <option value="inspirer">Inspirer</option>
                       <option value="sarcasme">Sarcasme</option>
                       <option value="éduquer">Éduquer</option>
@@ -1034,7 +1029,7 @@ export default function Page() {
                 <div className="proNote">
                   <div className="proNote__title">Mode Pro</div>
                   <div className="proNote__desc">
-                    Copie bloquée si score &lt; {PRO_MIN_SCORE}. Utilise Auto-fix IA pour corriger vite.
+                    Objectif score ≥ {PRO_MIN_SCORE}. (Copie toujours autorisée.) Utilise Auto-fix IA pour corriger vite.
                   </div>
                 </div>
               </div>
@@ -1067,21 +1062,11 @@ export default function Page() {
                         <div style={{ fontWeight: 950 }}>Éditeur</div>
 
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                          <button
-                            className="btn btn--ghost"
-                            onClick={onAutoFix}
-                            disabled={loading || !audit}
-                            title="Auto-fix IA"
-                          >
+                          <button className="btn btn--ghost" onClick={onAutoFix} disabled={loading || !audit} title="Auto-fix IA">
                             Auto-fix IA ✨
                           </button>
 
-                          <button
-                            className="btn btn--ghost"
-                            onClick={copyAll}
-                            disabled={loading || proBlocked}
-                            title={proBlocked ? `Mode Pro : score < ${PRO_MIN_SCORE}` : "Copier tout"}
-                          >
+                          <button className="btn btn--ghost" onClick={copyAll} disabled={loading || proBlocked} title="Copier tout">
                             Copier tout
                           </button>
 
@@ -1092,15 +1077,6 @@ export default function Page() {
                           )}
                         </div>
                       </div>
-
-                      {proBlocked && (
-                        <div className="swWarnings swWarnings--dark" style={{ marginTop: 12 }}>
-                          <div className="swWarnings__title">Mode Pro : copie bloquée</div>
-                          <div className="swWarnings__desc">
-                            Score &lt; {PRO_MIN_SCORE}. Corrige les warnings (ou clique Auto-fix IA).
-                          </div>
-                        </div>
-                      )}
 
                       <div style={{ marginTop: 12 }}>
                         <div className="subTitle">Aperçu LinkedIn</div>
@@ -1123,12 +1099,7 @@ export default function Page() {
                             <div className="swBlock__meta">
                               <span className="swCount swCount--dark">{(result.caption ?? "").length}</span>
 
-                              <button
-                                className="btn btn--ghost"
-                                type="button"
-                                onClick={copyCaption}
-                                disabled={loading || proBlocked}
-                              >
+                              <button className="btn btn--ghost" type="button" onClick={copyCaption} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
@@ -1139,9 +1110,7 @@ export default function Page() {
                           <textarea
                             className="swEditor swEditor--caption swEditor--dark"
                             value={result.caption}
-                            onChange={(e) =>
-                              setResult((prev) => (prev ? { ...prev, caption: e.target.value } : prev))
-                            }
+                            onChange={(e) => setResult((prev) => (prev ? { ...prev, caption: e.target.value } : prev))}
                             placeholder="Ta caption…"
                             style={{ minHeight: 260 }}
                           />
@@ -1155,20 +1124,13 @@ export default function Page() {
                             <div className="swBlock__meta">
                               <span className="swCount swCount--dark">{(result.cta ?? "").length}</span>
 
-                              <button
-                                className="btn btn--ghost"
-                                type="button"
-                                onClick={copyCTA}
-                                disabled={loading || proBlocked}
-                              >
+                              <button className="btn btn--ghost" type="button" onClick={copyCTA} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
                           </div>
 
-                          <div className="swBlock__help swBlock__help--dark">
-                            Question ouverte • relance commentaires (&gt; 10 mots)
-                          </div>
+                          <div className="swBlock__help swBlock__help--dark">Question ouverte • relance commentaires (&gt; 10 mots)</div>
 
                           <textarea
                             className="swEditor swEditor--cta swEditor--dark"
@@ -1187,12 +1149,7 @@ export default function Page() {
                             <div className="swBlock__meta">
                               <span className="swCount swCount--dark">{(result.hashtags ?? "").length}</span>
 
-                              <button
-                                className="btn btn--ghost"
-                                type="button"
-                                onClick={copyHashtags}
-                                disabled={loading || proBlocked}
-                              >
+                              <button className="btn btn--ghost" type="button" onClick={copyHashtags} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
@@ -1209,9 +1166,7 @@ export default function Page() {
                               setResult((prev) => (prev ? { ...prev, hashtags: normalized } : prev));
                             }}
                             onBlur={() => {
-                              setResult((prev) =>
-                                prev ? { ...prev, hashtags: normalizeHashtagsInput(prev.hashtags) } : prev
-                              );
+                              setResult((prev) => (prev ? { ...prev, hashtags: normalizeHashtagsInput(prev.hashtags) } : prev));
                             }}
                             placeholder="tag1 tag2 tag3 (ou #tag1 #tag2 #tag3)"
                             style={{ minHeight: 90 }}
@@ -1372,8 +1327,8 @@ export default function Page() {
 
             <div className="panel panel--dark" style={{ padding: 18 }}>
               <div className="panelKicker">Mode Pro</div>
-              <div className="panelTitle">Qualité minimale</div>
-              <div className="panelDesc">Copie bloquée si score &lt; 75.</div>
+              <div className="panelTitle">Qualité recommandée</div>
+              <div className="panelDesc">Objectif : score ≥ 75 (copie autorisée).</div>
             </div>
           </div>
 
