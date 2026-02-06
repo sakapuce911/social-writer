@@ -2,10 +2,34 @@
 import { NextResponse } from "next/server";
 import { callLLM } from "@/lib/provider";
 
-export const runtime = "nodejs"; // process.env OK
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Lang = "fr" | "en";
+type Objective = "éduquer" | "inspirer" | "sarcasme";
+
+function safeLang(input: unknown): Lang {
+  const v = String(input ?? "").trim().toLowerCase();
+  return v === "en" ? "en" : "fr";
+}
+
+function safeObjective(input: unknown): Objective {
+  const v = String(input ?? "").trim().toLowerCase();
+  if (v === "inspirer" || v === "inspire") return "inspirer";
+  if (v === "éduquer" || v === "eduquer" || v === "educate") return "éduquer";
+  if (v === "sarcasme" || v === "sarcastique" || v === "sarcasm") return "sarcasme";
+  return "inspirer";
+}
+
+/** Nettoie les ```json ... ``` si le modèle en met */
+function stripCodeFences(s: string) {
+  return (s ?? "")
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+}
 
 function safeJsonParse<T = any>(s: string): T | null {
   try {
@@ -20,17 +44,6 @@ function normalizeHashtagsToString(raw: unknown) {
   return String(raw ?? "").trim();
 }
 
-/** Nettoie les ```json ... ``` si le modèle en met */
-function stripCodeFences(s: string) {
-  return (s ?? "")
-    .trim()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-}
-
-/** Essaie d'extraire le premier JSON objet { ... } dans un texte */
 function extractFirstJSONObject(text: string) {
   const t = String(text ?? "");
   const first = t.indexOf("{");
@@ -40,12 +53,43 @@ function extractFirstJSONObject(text: string) {
 }
 
 function coerceOutput(rawText: string): { caption: string; cta: string; hashtags: string } | null {
-  const trimmed = (rawText ?? "").trim();
-  if (!trimmed) return null;
+  let t = stripCodeFences(String(rawText ?? "")).trim();
+  if (!t) return null;
 
-  // 1) JSON strict
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-    const obj = safeJsonParse<any>(trimmed);
+  // JSON stringifié
+  if (t.startsWith('"') && t.endsWith('"')) {
+    const inner = safeJsonParse<string>(t);
+    if (typeof inner === "string" && inner.trim()) t = inner.trim();
+  }
+
+  // JSON direct
+  if (t.startsWith("{") && t.endsWith("}")) {
+    const obj = safeJsonParse<any>(t);
+    if (obj) {
+      // wrapper {"output":"{...}"}
+      if (typeof obj.output === "string" && obj.output.trim()) {
+        const innerTxt = obj.output.trim();
+        const innerObj = safeJsonParse<any>(innerTxt) || safeJsonParse<any>(extractFirstJSONObject(innerTxt));
+        if (innerObj) {
+          return {
+            caption: String(innerObj.caption ?? "").trim(),
+            cta: String(innerObj.cta ?? "").trim(),
+            hashtags: normalizeHashtagsToString(innerObj.hashtags),
+          };
+        }
+      }
+
+      const caption = String(obj.caption ?? "").trim();
+      const cta = String(obj.cta ?? "").trim();
+      const hashtags = normalizeHashtagsToString(obj.hashtags);
+      if (caption || cta || hashtags) return { caption, cta, hashtags };
+    }
+  }
+
+  // JSON embedded
+  const embedded = extractFirstJSONObject(t);
+  if (embedded) {
+    const obj = safeJsonParse<any>(embedded);
     if (obj) {
       return {
         caption: String(obj.caption ?? "").trim(),
@@ -55,58 +99,73 @@ function coerceOutput(rawText: string): { caption: string; cta: string; hashtags
     }
   }
 
-  // 2) Format CAPTION/CTA/HASHTAGS (fallback)
-  const lines = trimmed.split("\n");
-  let section: "caption" | "cta" | "hashtags" | null = null;
-  const out = { caption: [] as string[], cta: [] as string[], hashtags: [] as string[] };
+  return null;
+}
 
-  const isCaption = (s: string) => /^caption\s*:?\s*$/i.test(s);
-  const isCTA = (s: string) => /^(cta|appel à l'action|call to action)\s*:?\s*$/i.test(s);
-  const isHashtags = (s: string) => /^(hashtags|hash-tags)\s*:?\s*$/i.test(s);
+// ✅ System strict JSON (identique à generate)
+const STRICT_SYSTEM = `Réponds UNIQUEMENT en JSON strict, sans markdown, sans texte autour.
+Schéma: {"caption":"string","cta":"string","hashtags":"string"}
+Aucune autre clé.`.trim();
 
-  for (const l of lines) {
-    const t = l.trim();
+/**
+ * ✅ Prompt Auto-fix: minimal + ciblé
+ * (moins de tokens = moins de quota)
+ */
+function buildAutoFixPrompt(args: {
+  subject: string;
+  language: Lang;
+  objective: Objective;
+  current: { caption: string; cta: string; hashtags: string };
+  audit?: any;
+}) {
+  const { subject, language, objective, current, audit } = args;
+  const langLabel = language === "en" ? "English" : "French";
 
-    if (/^caption\s*:/i.test(t)) {
-      section = "caption";
-      out.caption.push(t.replace(/^caption\s*:\s*/i, "").trim());
-      continue;
-    }
-    if (/^(cta|appel à l'action|call to action)\s*:/i.test(t)) {
-      section = "cta";
-      out.cta.push(t.replace(/^(cta|appel à l'action|call to action)\s*:\s*/i, "").trim());
-      continue;
-    }
-    if (/^hashtags\s*:/i.test(t)) {
-      section = "hashtags";
-      out.hashtags.push(t.replace(/^hashtags\s*:\s*/i, "").trim());
-      continue;
-    }
+  return `
+Corrige une sortie LinkedIn non conforme. Réponds UNIQUEMENT en JSON strict.
 
-    if (isCaption(t)) {
-      section = "caption";
-      continue;
-    }
-    if (isCTA(t)) {
-      section = "cta";
-      continue;
-    }
-    if (isHashtags(t)) {
-      section = "hashtags";
-      continue;
-    }
+Langue: ${langLabel}
+Sujet: ${subject}
+Objectif: ${objective}
 
-    if (!section) out.caption.push(l);
-    else out[section].push(l);
-  }
+Règles (STRICT):
+- Hook (1ère ligne caption): commence par "Vous", contient 1 chiffre OU "?", 150–180 caractères, 1 ligne.
+- Caption: 900–1400 caractères, paragraphes courts + lignes vides.
+- Liste: 3–5 points, chaque ligne commence par "- ".
+- Fin caption: question ouverte "?"
+- CTA: question ouverte "?" (≥ 20 caractères)
+- Hashtags: 3–5 uniques, une seule ligne "#a #b #c"
+- Interdit: inventer des % ou stats non fournies. Préférer des petits nombres (1/3/5).
+- Pas de lien / URL.
 
-  const caption = out.caption.join("\n").trim();
-  const cta = out.cta.join("\n").trim();
-  const hashtags = out.hashtags.join(" ").replace(/\s+/g, " ").trim();
+Audit (si présent):
+${audit ? JSON.stringify(audit) : "Aucun"}
 
-  if (!caption && !cta && !hashtags) return null;
+Entrée actuelle:
+CAPTION:
+"""${String(current.caption ?? "").trim()}"""
 
-  return { caption, cta, hashtags };
+CTA:
+"""${String(current.cta ?? "").trim()}"""
+
+HASHTAGS:
+"""${String(current.hashtags ?? "").trim()}"""
+
+Consignes:
+- Corrige le minimum pour être conforme.
+- Garde le même sens, même angle, même ton.
+- Schéma: {"caption":"string","cta":"string","hashtags":"string"}
+`.trim();
+}
+
+/**
+ * ✅ Dédup serveur (anti double clic)
+ */
+const INFLIGHT = new Map<string, Promise<any>>();
+
+async function sha256(input: string) {
+  const { createHash } = await import("node:crypto");
+  return createHash("sha256").update(input).digest("hex");
 }
 
 export async function POST(req: Request) {
@@ -114,136 +173,99 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     if (!body) return NextResponse.json({ error: "Body JSON invalide." }, { status: 400 });
 
-    const language = (body.language ?? "fr") as Lang;
-    const subject = String(body.subject ?? "").trim();
-    const audit = body.audit ?? null;
+    const subject = String(body?.subject ?? "").trim();
+    if (!subject) return NextResponse.json({ error: "Le sujet est obligatoire." }, { status: 400 });
 
-    const current = body.current ?? {};
-    const caption = String(current.caption ?? "").trim();
-    const cta = String(current.cta ?? "").trim();
-    const hashtags = String(current.hashtags ?? "").trim();
+    const language = safeLang(body?.language);
 
-    if (!subject) return NextResponse.json({ error: "Sujet manquant." }, { status: 400 });
+    // ✅ IMPORTANT: sanitize objective (type safe + prompt stable)
+    const objective = safeObjective(body?.objective);
 
-    // ✅ Prompt ultra explicite : JSON strict
-    // (⚠️ Pas de "2026" ici pour éviter que l'IA le recopie)
-    const prompt = `
-Tu es un expert LinkedIn. Tu corriges un post pour maximiser la conversation (engagement) ET respecter des contraintes.
-Tu dois sortir UNIQUEMENT un JSON strict (sans markdown, sans texte autour).
+    const current = body?.current ?? {};
+    const caption = String(current?.caption ?? "");
+    const cta = String(current?.cta ?? "");
+    const hashtags = String(current?.hashtags ?? "");
 
-Langue: ${language}
-Sujet: ${subject}
-
-Post actuel:
-CAPTION:
-${caption}
-
-CTA:
-${cta}
-
-HASHTAGS:
-${hashtags}
-
-Score & recommandations (si présentes):
-${audit ? JSON.stringify(audit) : "Aucun audit fourni"}
-
-Contraintes à respecter:
-- Hook (1ère ligne) doit être entre 150 et 180 caractères si possible
-- Hook commence par "Vous"
-- 1 seule idée, lisible mobile (paragraphes courts)
-- Une question ouverte en fin (caption ou cta doit finir par "?")
-- Hashtags: 3 à 5, uniques, de niche, format "#tag"
-- Ne change PAS le sujet, améliore la clarté et l'impact
-- Ne supprime pas le CTA : il doit inciter à commenter (>10 mots)
-- N'invente pas de chiffres précis si le sujet n'en donne pas
-- N'ajoute pas de lien / URL
-
-Sortie attendue (JSON strict):
-{
-  "caption": "...",
-  "cta": "...",
-  "hashtags": "#tag1 #tag2 #tag3"
-}
-`.trim();
-
-    // ✅ Appel via provider (rotation clés + retry + fallback models)
-    const r = await callLLM(prompt, {
-      temperature: 0.5,
-      maxOutputTokens: 900,
-      timeoutMs: 15000,
-      forceJson: true,
-    });
-
-    const metaModel = (r as any)?.model ?? null;
-    const metaKeyIndex = (r as any)?.keyIndex ?? null;
-
-    let rawText = stripCodeFences(String((r as any)?.text ?? "")).trim();
-
-    // 1) parse direct
-    let parsed = coerceOutput(rawText);
-
-    // 2) si pas ok -> tente d’extraire un JSON embedded
-    if (!parsed) {
-      const embedded = extractFirstJSONObject(rawText);
-      if (embedded) parsed = coerceOutput(embedded);
+    if (!caption && !cta && !hashtags) {
+      return NextResponse.json({ error: "Auto-fix: contenu vide (caption/cta/hashtags)." }, { status: 400 });
     }
 
-    // 3) si encore pas ok -> repair IA (JSON only)
-    if (!parsed) {
-      const repairPrompt = `
-Tu dois répondre UNIQUEMENT avec un JSON strict, sans aucun autre texte.
-Convertis/répare ce contenu au format:
-{
-  "caption": "...",
-  "cta": "...",
-  "hashtags": "#tag1 #tag2 #tag3"
-}
+    const audit = body?.audit ?? null;
 
-Contenu à réparer:
-"""${rawText}"""
-`.trim();
+    const key = await sha256(
+      JSON.stringify({
+        subject,
+        language,
+        objective,
+        current: { caption: caption.trim(), cta: cta.trim(), hashtags: hashtags.trim() },
+        audit,
+      })
+    );
 
-      const rr = await callLLM(repairPrompt, {
-        temperature: 0.2,
-        maxOutputTokens: 700,
-        timeoutMs: 12000,
-        forceJson: true,
+    const inflight = INFLIGHT.get(key);
+    if (inflight) return NextResponse.json(await inflight);
+
+    const job = (async () => {
+      const prompt = buildAutoFixPrompt({
+        subject,
+        language,
+        objective,
+        current: { caption, cta, hashtags },
+        audit,
       });
 
-      const repaired = stripCodeFences(String((rr as any)?.text ?? "")).trim();
-      parsed = coerceOutput(repaired) || coerceOutput(extractFirstJSONObject(repaired));
-      rawText = repaired || rawText;
-    }
+      const r = await callLLM(prompt, {
+        temperature: 0.2,
+        maxOutputTokens: 650,
+        timeoutMs: 15000,
+        forceJson: true,
+        system: STRICT_SYSTEM,
+        cacheTtlMs: 0, // ✅ FULL IA (zéro cache)
+      });
 
-    if (!parsed) {
-      return NextResponse.json(
-        {
-          error: "Réponse IA inexploitable (JSON invalide).",
-          raw: rawText.slice(0, 2500),
+      const raw = String(r.text ?? "");
+      const out = coerceOutput(raw);
+
+      if (!out || (!out.caption && !out.cta && !out.hashtags)) {
+        return {
+          error: "Auto-fix: JSON inexploitable.",
+          code: "bad_output",
+          raw: stripCodeFences(raw).slice(0, 2000),
+        };
+      }
+
+      return {
+        output: {
+          caption: String(out.caption ?? "").trim(),
+          cta: String(out.cta ?? "").trim(),
+          hashtags: normalizeHashtagsToString(out.hashtags),
         },
-        { status: 502 }
-      );
+        meta: { objective, language, model: r.model },
+      };
+    })();
+
+    INFLIGHT.set(key, job);
+
+    try {
+      const payload = await job;
+      return NextResponse.json(payload);
+    } finally {
+      INFLIGHT.delete(key);
     }
-
-    return NextResponse.json({
-      output: {
-        caption: parsed.caption,
-        cta: parsed.cta,
-        hashtags: normalizeHashtagsToString(parsed.hashtags),
-      },
-      meta: { model: metaModel, keyIndex: metaKeyIndex },
-    });
-  } catch (e: unknown) {
-    console.error("Autofix route crash:", e);
-    const msg = e instanceof Error ? e.message : String(e);
-
+  } catch (e: any) {
+    const msg = String(e?.message ?? "Erreur inconnue");
     const lower = msg.toLowerCase();
+
     const isTimeout = lower.includes("timeout") || lower.includes("aborterror") || lower.includes("504");
-    const isQuota = lower.includes("quota") || lower.includes("resource_exhausted") || lower.includes("rate limit") || lower.includes("429");
+    const isQuota =
+      lower.includes("quota") ||
+      lower.includes("resource_exhausted") ||
+      lower.includes("rate limit") ||
+      lower.includes("429");
 
     if (isTimeout) return NextResponse.json({ error: msg, code: "timeout" }, { status: 504 });
     if (isQuota) return NextResponse.json({ error: msg, code: "quota" }, { status: 429 });
 
-    return NextResponse.json({ error: msg || "Erreur serveur autofix" }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
