@@ -281,17 +281,35 @@ textarea { resize: vertical; }
 .burger__icon span:nth-child(2) { top: 5px; }
 .burger__icon span:nth-child(3) { top: 10px; }
 
+/* ===========================
+   ✅ FIX MENU MOBILE (overlay)
+   -> ne pousse plus la page
+=========================== */
 .nav__mobile {
-  display: none;
+  /* IMPORTANT: on garde la logique React (display: block via inline style)
+     donc on ne met plus display:none ici. */
+  position: fixed;
+  top: 76px; /* hauteur nav */
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  z-index: 60;
+
   border-top: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  overflow-y: auto;
   transform-origin: top;
   animation: swFadeUp var(--dur3) var(--easeOut) both;
 }
+
 .nav__mobileInner {
   width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 12px 0 16px;
+  padding: 18px 0 24px;
   display: grid;
   gap: 10px;
 }
@@ -300,6 +318,7 @@ textarea { resize: vertical; }
     width: min(1120px, calc(100% - 28px));
   }
 }
+
 .nav__mobile a {
   padding: 12px 14px;
   border-radius: 14px;
