@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -16,13 +17,13 @@ export default function LoginClient() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // ✅ micro UX: focus auto
+  // ✅ focus auto
   const userRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     userRef.current?.focus();
   }, []);
 
-  // ✅ animation erreur (shake)
+  // ✅ shake erreur
   const [shake, setShake] = useState(false);
   useEffect(() => {
     if (!err) return;
@@ -65,389 +66,741 @@ export default function LoginClient() {
   const canSubmit = username.trim().length > 0 && password.trim().length > 0 && !loading;
 
   return (
-    <div style={wrap}>
-      {/* ✅ arrière-plan animé */}
-      <div style={bgLayer} aria-hidden="true">
-        <div style={{ ...blob, ...blobA }} />
-        <div style={{ ...blob, ...blobB }} />
-        <div style={{ ...blob, ...blobC }} />
-        <div style={grain} />
-      </div>
+    <div style={page}>
+      <div className="swOuter" style={{ ...outerCard, ...(shake ? outerShake : null) }}>
+        {/* LEFT (LinkedIn-like value panel) */}
+        <aside className="swLeft" style={leftPanel} aria-hidden="true">
+          <div style={leftInner}>
+            {/* subtle layers */}
+            <div style={dotsLayer} />
+            <div style={glow1} />
+            <div style={glow2} />
 
-      <form onSubmit={onSubmit} style={{ ...card, ...(shake ? cardShake : null) }}>
-        {/* ✅ header */}
-        <div style={topRow}>
-          <div style={logoMark} aria-hidden="true">
-            SW
-          </div>
+            {/* clouds (very subtle) */}
+            <div style={cloudA} />
+            <div style={cloudB} />
 
-          <div style={{ display: "grid", gap: 2 }}>
-            <div style={title}>Connexion</div>
-            <div style={subtitle}>Accès réservé à SocialWriter</div>
-          </div>
-        </div>
+            <div style={leftCenter}>
+              {/* Value card: fake LinkedIn post preview (translucent) */}
+              <div style={liCard}>
+                <div style={liTop}>
+                  <div style={liAvatar} />
+                  <div style={liMeta}>
+                    <div style={liNameRow}>
+                      <div style={liName}>Vous</div>
+                      <div style={liDot} />
+                      <div style={liTime}>Maintenant</div>
+                    </div>
+                    <div style={liSub}>Créateur • SocialWriter</div>
+                  </div>
 
-        {/* ✅ micro décor */}
-        <div style={sparkles} aria-hidden="true">
-          <span style={{ ...spark, ...spark1 }} />
-          <span style={{ ...spark, ...spark2 }} />
-          <span style={{ ...spark, ...spark3 }} />
-        </div>
+                  <div style={scorePill} title="Exemple de score">
+                    <span style={scoreDot} />
+                    Score 86/100
+                  </div>
+                </div>
 
-        {err && (
-          <div style={errBox} role="status" aria-live="polite">
-            <span style={errDot} aria-hidden="true" />
-            <div style={{ lineHeight: 1.2 }}>{err}</div>
-          </div>
-        )}
+                <div style={liBody}>
+                  <div style={{ ...liLine, width: "86%" }} />
+                  <div style={{ ...liLine, width: "92%" }} />
+                  <div style={{ ...liLine, width: "74%" }} />
+                  <div style={{ height: 10 }} />
+                  <div style={liListRow}>
+                    <span style={liBullet}>✓</span>
+                    <div style={{ ...liLine, width: "62%" }} />
+                  </div>
+                  <div style={liListRow}>
+                    <span style={liBullet}>✓</span>
+                    <div style={{ ...liLine, width: "58%" }} />
+                  </div>
+                  <div style={liListRow}>
+                    <span style={liBullet}>✓</span>
+                    <div style={{ ...liLine, width: "54%" }} />
+                  </div>
+                </div>
 
-        {/* ✅ username */}
-        <label style={field}>
-          <div style={labelTxt}>Username</div>
-          <div className="swFocusShell" style={inputShell}>
-            <span style={icon} aria-hidden="true">
-              @
-            </span>
-            <input
-              ref={userRef}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              placeholder="username"
-              style={input}
-            />
-          </div>
-        </label>
+                <div style={liFooter}>
+                  <div style={liChip}>#hook</div>
+                  <div style={liChip}>#audit</div>
+                  <div style={liChip}>#hashtags</div>
+                </div>
+              </div>
 
-        {/* ✅ password */}
-        <label style={field}>
-          <div style={labelTxt}>Mot de passe</div>
+              {/* 3 bullets (proof of value) */}
+              <div style={valueGrid}>
+                <div style={valueItem}>
+                  <div style={valueIcon}>⚡</div>
+                  <div style={valueText}>
+                    <div style={valueTitle}>Hook 150–180</div>
+                    <div style={valueSub}>Stop scrolling, mais humain.</div>
+                  </div>
+                </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
-            <div className="swFocusShell" style={inputShell}>
-              <span style={icon} aria-hidden="true">
-                🔒
-              </span>
+                <div style={valueItem}>
+                  <div style={valueIcon}>📈</div>
+                  <div style={valueText}>
+                    <div style={valueTitle}>Audit temps réel</div>
+                    <div style={valueSub}>Lisibilité • question • score.</div>
+                  </div>
+                </div>
 
-              <input
-                type={show ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                placeholder="••••••••"
-                style={input}
-              />
+                <div style={valueItem}>
+                  <div style={valueIcon}>🏷️</div>
+                  <div style={valueText}>
+                    <div style={valueTitle}>Hashtags propres</div>
+                    <div style={valueSub}>3–5, niche, normalisés.</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* existing caption (more integrated) */}
+              <div style={leftCaption}>
+                <div style={leftCaptionTitle}>Écris. Ajuste. Publie.</div>
+                <div style={leftCaptionSub}>Un login simple, une expérience premium.</div>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShow((v) => !v)}
-              style={{
-                ...eyeBtn,
-                ...(show ? eyeBtnOn : null),
-              }}
-              aria-label={show ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-              title={show ? "Masquer" : "Afficher"}
-            >
-              <span style={{ transform: show ? "translateY(-0.5px)" : "translateY(0px)" }}>👀</span>
-            </button>
+            <div style={leftFooter}>
+              <span style={leftFooterDot} />
+              <span>© {new Date().getFullYear()} SocialWriter</span>
+            </div>
           </div>
-        </label>
+        </aside>
 
-        {/* ✅ submit */}
-        <button type="submit" disabled={!canSubmit} style={{ ...submit, ...(canSubmit ? null : submitDisabled) }}>
-          {loading ? (
-            <span style={btnInner}>
-              <span style={dots} aria-hidden="true">
-                <span style={{ ...dot, animationDelay: "0ms" }} />
-                <span style={{ ...dot, animationDelay: "120ms" }} />
-                <span style={{ ...dot, animationDelay: "240ms" }} />
-              </span>
-              Connexion…
-            </span>
-          ) : (
-            <span style={btnInner}>
-              Se connecter
-              <span style={btnArrow} aria-hidden="true">
-                ↗
-              </span>
-            </span>
-          )}
-        </button>
+        {/* RIGHT (form) */}
+        <main style={rightPanel}>
+          <div style={rightInner}>
+            <div style={brandTop}>
+              {/* ✅ apple-touch-icon.png + LinkedIn badge */}
+              <div style={logoBadge} aria-hidden="true">
+                <Image
+                  src="/apple-touch-icon.png"
+                  alt="SocialWriter"
+                  width={22}
+                  height={22}
+                  style={logoImg}
+                  priority
+                />
+              </div>
 
-        <div style={hint}>
-          Astuce : si tu arrives ici après un logout, c’est normal.
-          <span style={{ marginLeft: 6, opacity: 0.75 }}>✨</span>
-        </div>
+              <div style={{ display: "grid", lineHeight: 1.05 }}>
+                <div style={brandName}>SocialWriter</div>
+                <div style={brandSmall}>Sign in</div>
+              </div>
+            </div>
 
-        {/* ✅ styles / keyframes local */}
+            {err && (
+              <div style={errBox} role="status" aria-live="polite">
+                <span style={errDot} aria-hidden="true" />
+                <div style={{ lineHeight: 1.25 }}>{err}</div>
+              </div>
+            )}
+
+            <form onSubmit={onSubmit} style={{ display: "grid", gap: 18, marginTop: 14 }}>
+              {/* LOGIN */}
+              <div style={lineField}>
+                <div style={lineLabel}>LOGIN</div>
+                <input
+                  ref={userRef}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  placeholder="meghan.tormund@gmail.com"
+                  style={lineInput}
+                  aria-label="Email"
+                />
+                <div style={lineRule} />
+              </div>
+
+              {/* PASSWORD */}
+              <div style={lineField}>
+                <div style={lineLabel}>PASSWORD</div>
+
+                <div style={lineRow}>
+                  <input
+                    type={show ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    placeholder="••••••••••••••••"
+                    style={{ ...lineInput, paddingRight: 44 }}
+                    aria-label="Password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow((v) => !v)}
+                    style={eyeBtn}
+                    aria-label={show ? "Hide password" : "Show password"}
+                    title={show ? "Hide" : "Show"}
+                  >
+                    {show ? "🙈" : "👁️"}
+                  </button>
+                </div>
+
+                <div style={lineRule} />
+              </div>
+
+              {/* Remember only */}
+              <div style={rowSimple}>
+                <label style={rememberRow}>
+                  <input
+                    type="checkbox"
+                    style={checkbox}
+                    onChange={() => {
+                      /* UI only */
+                    }}
+                  />
+                  <span style={rememberTxt}>Remember me</span>
+                </label>
+              </div>
+
+              {/* CTA only */}
+              <div style={ctaOnlyRow}>
+                <button type="submit" disabled={!canSubmit} style={{ ...ctaBtn, ...(canSubmit ? null : ctaDisabled) }}>
+                  <span style={ctaInner}>
+                    {loading ? (
+                      <>
+                        <span style={dots} aria-hidden="true">
+                          <span style={{ ...dot, animationDelay: "0ms" }} />
+                          <span style={{ ...dot, animationDelay: "120ms" }} />
+                          <span style={{ ...dot, animationDelay: "240ms" }} />
+                        </span>
+                        Sign in
+                      </>
+                    ) : (
+                      <>
+                        Sign in <span aria-hidden="true">→</span>
+                      </>
+                    )}
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </main>
+
         <style>{css}</style>
-      </form>
+      </div>
     </div>
   );
 }
 
 /* =========================
-   Inline styles (no deps)
+   Styles — LinkedIn-like left panel “proof of value”
 ========================= */
 
-const wrap: React.CSSProperties = {
+const LINKEDIN_BLUE = "#0A66C2";
+
+const page: React.CSSProperties = {
   minHeight: "100vh",
+  background: "#EAF1F7",
   display: "grid",
   placeItems: "center",
-  padding: 24,
-  position: "relative",
-  overflow: "hidden",
-  background: "#0b0b10",
-};
-
-const bgLayer: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  pointerEvents: "none",
-};
-
-const blob: React.CSSProperties = {
-  position: "absolute",
-  width: 540,
-  height: 540,
-  borderRadius: 999,
-  filter: "blur(26px)",
-  opacity: 0.75,
-  animation: "swFloat 9.5s ease-in-out infinite",
-};
-
-const blobA: React.CSSProperties = {
-  left: "-160px",
-  top: "-160px",
-  background: "radial-gradient(circle at 30% 30%, rgba(124,92,255,0.85), rgba(124,92,255,0.0) 60%)",
-};
-
-const blobB: React.CSSProperties = {
-  right: "-180px",
-  top: "-120px",
-  animationDelay: "900ms",
-  background: "radial-gradient(circle at 40% 40%, rgba(255,176,102,0.80), rgba(255,176,102,0.0) 62%)",
-};
-
-const blobC: React.CSSProperties = {
-  left: "20%",
-  bottom: "-220px",
-  width: 660,
-  height: 660,
-  animationDelay: "1600ms",
-  background: "radial-gradient(circle at 50% 50%, rgba(255,77,109,0.75), rgba(255,77,109,0.0) 62%)",
-};
-
-const grain: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  backgroundImage:
-    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E\")",
-  opacity: 0.12,
-  mixBlendMode: "overlay",
-};
-
-const card: React.CSSProperties = {
-  width: "min(520px, 100%)",
-  position: "relative",
-  borderRadius: 24,
   padding: 22,
-  background: "rgba(17,17,24,0.62)",
-  border: "1px solid rgba(255,255,255,0.14)",
-  boxShadow: "0 28px 70px rgba(0,0,0,0.55)",
-  backdropFilter: "blur(14px)",
-  transform: "translateY(0px)",
-  animation: "swEnter 520ms cubic-bezier(.2,.9,.2,1) both",
 };
 
-const cardShake: React.CSSProperties = {
+const outerCard: React.CSSProperties = {
+  width: "min(1100px, 100%)",
+  minHeight: 620,
+  background: "#fff",
+  borderRadius: 22,
+  overflow: "hidden",
+  display: "grid",
+  gridTemplateColumns: "1.05fr 1fr",
+  boxShadow: "0 22px 70px rgba(2,6,23,0.18)",
+  border: "1px solid rgba(15,23,42,0.08)",
+};
+
+const outerShake: React.CSSProperties = {
   animation: "swShake 520ms ease both",
 };
 
-const topRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  marginBottom: 14,
+/* Left panel */
+const leftPanel: React.CSSProperties = {
+  background: LINKEDIN_BLUE,
+  position: "relative",
 };
 
-const logoMark: React.CSSProperties = {
-  width: 46,
-  height: 46,
-  borderRadius: 16,
+const leftInner: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  padding: 26,
+  display: "grid",
+  gridTemplateRows: "1fr auto",
+  overflow: "hidden",
+};
+
+const dotsLayer: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  opacity: 0.14,
+  backgroundImage:
+    "radial-gradient(rgba(255,255,255,0.55) 1px, transparent 1px)",
+  backgroundSize: "18px 18px",
+  pointerEvents: "none",
+  mixBlendMode: "overlay",
+};
+
+const glow1: React.CSSProperties = {
+  position: "absolute",
+  width: 520,
+  height: 520,
+  left: -220,
+  top: -260,
+  borderRadius: 999,
+  background: "radial-gradient(circle at 40% 40%, rgba(255,255,255,0.22), rgba(255,255,255,0) 65%)",
+  filter: "blur(6px)",
+  opacity: 0.9,
+  pointerEvents: "none",
+};
+
+const glow2: React.CSSProperties = {
+  position: "absolute",
+  width: 700,
+  height: 700,
+  right: -360,
+  bottom: -420,
+  borderRadius: 999,
+  background: "radial-gradient(circle at 40% 40%, rgba(0,0,0,0.16), rgba(0,0,0,0) 64%)",
+  filter: "blur(10px)",
+  opacity: 0.9,
+  pointerEvents: "none",
+};
+
+const cloudA: React.CSSProperties = {
+  position: "absolute",
+  top: 56,
+  left: 44,
+  width: 110,
+  height: 34,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.10)",
+};
+
+const cloudB: React.CSSProperties = {
+  position: "absolute",
+  top: 92,
+  right: 72,
+  width: 140,
+  height: 42,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.08)",
+};
+
+const leftCenter: React.CSSProperties = {
+  alignSelf: "center",
+  justifySelf: "center",
+  width: "min(520px, 100%)",
+  display: "grid",
+  justifyItems: "center",
+  gap: 18,
+  paddingTop: 10,
+};
+
+/* Fake LinkedIn post card */
+const liCard: React.CSSProperties = {
+  width: "min(440px, 100%)",
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.14)",
+  border: "1px solid rgba(255,255,255,0.18)",
+  boxShadow: "0 18px 44px rgba(2,6,23,0.18)",
+  overflow: "hidden",
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
+};
+
+const liTop: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "auto 1fr auto",
+  gap: 12,
+  alignItems: "center",
+  padding: "14px 14px 10px",
+};
+
+const liAvatar: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.35)",
+  boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.20)",
+};
+
+const liMeta: React.CSSProperties = {
+  display: "grid",
+  gap: 3,
+};
+
+const liNameRow: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const liName: React.CSSProperties = {
+  fontWeight: 950,
+  color: "rgba(255,255,255,0.95)",
+  fontSize: 13,
+  letterSpacing: "-0.2px",
+};
+
+const liDot: React.CSSProperties = {
+  width: 4,
+  height: 4,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.55)",
+};
+
+const liTime: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 800,
+  color: "rgba(255,255,255,0.70)",
+};
+
+const liSub: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 750,
+  color: "rgba(255,255,255,0.70)",
+};
+
+const scorePill: React.CSSProperties = {
+  height: 28,
+  padding: "0 10px",
+  borderRadius: 999,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 12,
+  fontWeight: 950,
+  color: "rgba(255,255,255,0.95)",
+  background: "rgba(0,0,0,0.14)",
+  border: "1px solid rgba(255,255,255,0.16)",
+};
+
+const scoreDot: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: 999,
+  background: "rgba(120,255,180,0.95)",
+  boxShadow: "0 0 0 6px rgba(120,255,180,0.16)",
+};
+
+const liBody: React.CSSProperties = {
+  padding: "0 14px 12px",
+  display: "grid",
+  gap: 8,
+};
+
+const liLine: React.CSSProperties = {
+  height: 10,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.20)",
+};
+
+const liListRow: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "18px 1fr",
+  alignItems: "center",
+  gap: 8,
+};
+
+const liBullet: React.CSSProperties = {
+  width: 18,
+  height: 18,
+  borderRadius: 999,
   display: "grid",
   placeItems: "center",
+  background: "rgba(255,255,255,0.16)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  color: "rgba(255,255,255,0.90)",
+  fontSize: 12,
   fontWeight: 950,
-  letterSpacing: "-0.6px",
-  color: "rgba(255,255,255,0.92)",
-  background: "linear-gradient(135deg, rgba(124,92,255,0.95), rgba(98,181,255,0.92))",
-  boxShadow: "0 14px 34px rgba(124,92,255,0.25)",
-  border: "1px solid rgba(255,255,255,0.22)",
 };
 
-const title: React.CSSProperties = {
-  fontSize: 28,
-  fontWeight: 950,
-  color: "rgba(255,255,255,0.96)",
-  letterSpacing: "-0.4px",
+const liFooter: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  padding: "0 14px 14px",
+  flexWrap: "wrap",
 };
 
-const subtitle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.62)",
-  fontWeight: 800,
+const liChip: React.CSSProperties = {
+  padding: "7px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 850,
+  color: "rgba(255,255,255,0.90)",
+  background: "rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.14)",
+};
+
+/* Value list */
+const valueGrid: React.CSSProperties = {
+  width: "min(440px, 100%)",
+  display: "grid",
+  gap: 10,
+};
+
+const valueItem: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "34px 1fr",
+  gap: 10,
+  alignItems: "center",
+  padding: "10px 12px",
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  backdropFilter: "blur(6px)",
+  WebkitBackdropFilter: "blur(6px)",
+};
+
+const valueIcon: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: 12,
+  display: "grid",
+  placeItems: "center",
+  background: "rgba(0,0,0,0.12)",
+  border: "1px solid rgba(255,255,255,0.14)",
+  color: "rgba(255,255,255,0.95)",
+  fontSize: 16,
+};
+
+const valueText: React.CSSProperties = {
+  display: "grid",
+  gap: 2,
+};
+
+const valueTitle: React.CSSProperties = {
+  fontWeight: 950,
+  color: "rgba(255,255,255,0.95)",
+  letterSpacing: "-0.2px",
   fontSize: 13,
 };
 
-const sparkles: React.CSSProperties = {
-  position: "absolute",
-  right: 14,
-  top: 14,
-  width: 90,
-  height: 60,
-  opacity: 0.9,
+const valueSub: React.CSSProperties = {
+  fontWeight: 750,
+  color: "rgba(255,255,255,0.72)",
+  fontSize: 12,
 };
 
-const spark: React.CSSProperties = {
-  position: "absolute",
-  width: 10,
-  height: 10,
+/* Slogan */
+const leftCaption: React.CSSProperties = {
+  textAlign: "center",
+  color: "rgba(255,255,255,0.92)",
+  marginTop: 6,
+};
+
+const leftCaptionTitle: React.CSSProperties = {
+  fontWeight: 950,
+  letterSpacing: "-0.3px",
+  fontSize: 18,
+};
+
+const leftCaptionSub: React.CSSProperties = {
+  marginTop: 6,
+  fontWeight: 750,
+  fontSize: 12,
+  color: "rgba(255,255,255,0.75)",
+};
+
+/* Footer */
+const leftFooter: React.CSSProperties = {
+  justifySelf: "start",
+  alignSelf: "end",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 10,
+  color: "rgba(255,255,255,0.70)",
+  fontSize: 12,
+  fontWeight: 750,
+};
+
+const leftFooterDot: React.CSSProperties = {
+  width: 9,
+  height: 9,
   borderRadius: 999,
-  background: "rgba(255,255,255,0.85)",
-  filter: "blur(0.2px)",
-  animation: "swSpark 2.6s ease-in-out infinite",
+  background: "rgba(255,255,255,0.70)",
+  boxShadow: "0 0 0 6px rgba(255,255,255,0.10)",
 };
 
-const spark1: React.CSSProperties = { right: 10, top: 6, opacity: 0.7 };
-const spark2: React.CSSProperties = { right: 42, top: 22, width: 6, height: 6, opacity: 0.65, animationDelay: "360ms" };
-const spark3: React.CSSProperties = { right: 22, top: 40, width: 8, height: 8, opacity: 0.55, animationDelay: "760ms" };
+/* Right panel */
+const rightPanel: React.CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  padding: "34px 44px",
+};
+
+const rightInner: React.CSSProperties = {
+  width: "min(420px, 100%)",
+  display: "grid",
+};
+
+const brandTop: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  marginBottom: 6,
+};
+
+const logoBadge: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 12,
+  background: LINKEDIN_BLUE,
+  display: "grid",
+  placeItems: "center",
+  boxShadow: "0 14px 34px rgba(10,102,194,0.24)",
+};
+
+const logoImg: React.CSSProperties = {
+  filter: "brightness(0) invert(1)",
+};
+
+const brandName: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 950,
+  color: "#0B1220",
+};
+
+const brandSmall: React.CSSProperties = {
+  marginTop: 2,
+  fontSize: 12,
+  fontWeight: 750,
+  color: "rgba(15,23,42,0.55)",
+};
 
 const errBox: React.CSSProperties = {
-  marginTop: 6,
-  marginBottom: 14,
-  padding: "12px 12px",
-  borderRadius: 16,
-  border: "1px solid rgba(255,77,109,0.35)",
-  background: "linear-gradient(180deg, rgba(255,77,109,0.16), rgba(255,77,109,0.08))",
-  color: "rgba(255,255,255,0.92)",
-  fontWeight: 900,
+  marginTop: 12,
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(220,38,38,0.20)",
+  background: "rgba(220,38,38,0.06)",
+  color: "rgba(127,29,29,0.95)",
+  fontWeight: 850,
   display: "flex",
-  gap: 10,
   alignItems: "center",
-  boxShadow: "0 16px 40px rgba(255,77,109,0.10)",
-  animation: "swPulse 520ms ease both",
+  gap: 10,
 };
 
 const errDot: React.CSSProperties = {
   width: 10,
   height: 10,
   borderRadius: 999,
-  background: "rgba(255,77,109,0.95)",
-  boxShadow: "0 0 0 6px rgba(255,77,109,0.14)",
+  background: "rgba(220,38,38,0.85)",
+  boxShadow: "0 0 0 6px rgba(220,38,38,0.12)",
 };
 
-const field: React.CSSProperties = { display: "grid", gap: 7, marginBottom: 12 };
-
-const labelTxt: React.CSSProperties = {
-  fontWeight: 900,
-  color: "rgba(255,255,255,0.86)",
-  fontSize: 13,
-};
-
-const inputShell: React.CSSProperties = {
+const lineField: React.CSSProperties = {
+  width: "100%",
   display: "grid",
-  gridTemplateColumns: "auto 1fr",
-  gap: 10,
-  alignItems: "center",
-  padding: "12px 12px",
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.06)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
-  transition: "transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease",
+  gap: 8,
 };
 
-const icon: React.CSSProperties = {
-  width: 26,
-  height: 26,
-  borderRadius: 10,
-  display: "grid",
-  placeItems: "center",
-  fontWeight: 950,
-  color: "rgba(255,255,255,0.78)",
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.10)",
+const lineLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 850,
+  color: "rgba(15,23,42,0.40)",
+  letterSpacing: "0.14em",
 };
 
-const input: React.CSSProperties = {
+const lineRow: React.CSSProperties = {
+  position: "relative",
+};
+
+const lineInput: React.CSSProperties = {
   width: "100%",
   outline: "none",
   border: 0,
   background: "transparent",
-  color: "rgba(255,255,255,0.92)",
-  fontSize: 14,
+  color: "#0F172A",
+  fontSize: 13,
   fontWeight: 800,
+  padding: "10px 0",
 };
 
 const eyeBtn: React.CSSProperties = {
-  width: 46,
-  height: 46,
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.16)",
-  background: "rgba(255,255,255,0.06)",
-  color: "rgba(255,255,255,0.92)",
-  fontWeight: 900,
+  position: "absolute",
+  right: 0,
+  top: "50%",
+  transform: "translateY(-50%)",
+  width: 36,
+  height: 30,
+  borderRadius: 10,
+  border: "1px solid rgba(15,23,42,0.10)",
+  background: "rgba(2,6,23,0.02)",
   cursor: "pointer",
-  display: "grid",
-  placeItems: "center",
-  transition: "transform 120ms ease, background 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
-  willChange: "transform",
+  color: "rgba(15,23,42,0.65)",
 };
 
-const eyeBtnOn: React.CSSProperties = {
-  background: "rgba(98,181,255,0.12)",
-  borderColor: "rgba(98,181,255,0.30)",
-  boxShadow: "0 16px 34px rgba(98,181,255,0.12)",
+const lineRule: React.CSSProperties = {
+  height: 1,
+  background: "rgba(15,23,42,0.14)",
 };
 
-const submit: React.CSSProperties = {
+const rowSimple: React.CSSProperties = {
   width: "100%",
-  marginTop: 8,
-  padding: 12,
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "linear-gradient(135deg, rgba(124,92,255,0.95), rgba(98,181,255,0.92))",
-  color: "rgba(255,255,255,0.96)",
-  fontWeight: 950,
-  cursor: "pointer",
-  boxShadow: "0 18px 46px rgba(124,92,255,0.22)",
-  transition: "transform 120ms ease, filter 140ms ease, opacity 140ms ease",
-  willChange: "transform",
+  display: "flex",
+  alignItems: "center",
+  marginTop: 2,
 };
 
-const submitDisabled: React.CSSProperties = {
+const rememberRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  cursor: "pointer",
+};
+
+const checkbox: React.CSSProperties = {
+  width: 14,
+  height: 14,
+  accentColor: LINKEDIN_BLUE,
+};
+
+const rememberTxt: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 750,
+  color: "rgba(15,23,42,0.72)",
+};
+
+const ctaOnlyRow: React.CSSProperties = {
+  width: "100%",
+  display: "flex",
+  justifyContent: "flex-end",
+  marginTop: 6,
+};
+
+const ctaBtn: React.CSSProperties = {
+  border: 0,
+  cursor: "pointer",
+  background: LINKEDIN_BLUE,
+  color: "#fff",
+  fontWeight: 950,
+  borderRadius: 999,
+  padding: "12px 18px",
+  minWidth: 132,
+  boxShadow: "0 14px 34px rgba(10,102,194,0.22)",
+  transition: "transform 120ms ease, filter 140ms ease, opacity 140ms ease",
+};
+
+const ctaDisabled: React.CSSProperties = {
   cursor: "not-allowed",
   opacity: 0.55,
   filter: "grayscale(0.1)",
 };
 
-const btnInner: React.CSSProperties = {
+const ctaInner: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  justifyContent: "center",
   gap: 10,
 };
 
-const btnArrow: React.CSSProperties = {
-  width: 26,
-  height: 26,
-  borderRadius: 10,
-  display: "grid",
-  placeItems: "center",
-  background: "rgba(255,255,255,0.16)",
+const dots: React.CSSProperties = {
+  display: "inline-flex",
+  gap: 6,
+  alignItems: "center",
 };
-
-const dots: React.CSSProperties = { display: "inline-flex", gap: 5, alignItems: "center" };
 
 const dot: React.CSSProperties = {
   width: 6,
@@ -457,29 +810,7 @@ const dot: React.CSSProperties = {
   animation: "swDot 720ms ease-in-out infinite",
 };
 
-const hint: React.CSSProperties = {
-  marginTop: 12,
-  fontSize: 12,
-  color: "rgba(255,255,255,0.62)",
-  fontWeight: 800,
-};
-
-/* =========================
-   CSS keyframes + focus UX
-========================= */
 const css = `
-@keyframes swEnter{
-  from{ transform: translateY(10px); opacity: 0; }
-  to{ transform: translateY(0px); opacity: 1; }
-}
-@keyframes swFloat{
-  0%,100%{ transform: translate(0px,0px) scale(1); }
-  50%{ transform: translate(10px,14px) scale(1.03); }
-}
-@keyframes swSpark{
-  0%,100%{ transform: translateY(0px) scale(1); opacity: .65; }
-  50%{ transform: translateY(-2px) scale(1.06); opacity: .95; }
-}
 @keyframes swDot{
   0%,100%{ transform: translateY(0px); opacity: .55; }
   50%{ transform: translateY(-2px); opacity: 1; }
@@ -494,20 +825,15 @@ const css = `
   74%{ transform: translateX(3px); }
   100%{ transform: translateX(0px); }
 }
-@keyframes swPulse{
-  0%{ transform: scale(.98); opacity: .8; }
-  100%{ transform: scale(1); opacity: 1; }
-}
-
-/* ✅ Focus glow ROBUSTE: cible .swFocusShell (et pas les styles inline) */
-.swFocusShell:focus-within{
-  border-color: rgba(98,181,255,0.38) !important;
-  background: rgba(98,181,255,0.08) !important;
-  box-shadow: 0 0 0 6px rgba(98,181,255,0.12), inset 0 1px 0 rgba(255,255,255,0.08) !important;
-  transform: translateY(-0.5px);
-}
-
-/* Hover / active micro interactions */
-button:hover{ filter: brightness(1.03); }
+button:hover{ filter: brightness(1.02); }
 button:active{ transform: translateY(0px) scale(.99); }
+
+/* mobile: left panel hidden */
+@media (max-width: 900px){
+  .swOuter{
+    grid-template-columns: 1fr !important;
+    min-height: auto !important;
+  }
+  .swLeft{ display:none !important; }
+}
 `;

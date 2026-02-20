@@ -513,9 +513,6 @@ export default function Page() {
 
   /**
    * ✅ Anti double-call client
-   * - abort précédent si relance
-   * - bloque double-clic pendant un call
-   * - ignore les réponses “anciennes” (race condition)
    */
   const lastClientKeyRef = useRef<string | null>(null);
   const inflightAbortRef = useRef<AbortController | null>(null);
@@ -736,17 +733,116 @@ export default function Page() {
 
   return (
     <div className={["page", "page--dark", reduceMotion ? "swReduceMotion" : ""].join(" ").trim()}>
-      {/* ✅ V2 PREMIUM MOTION (1 fichier, no CSS edits ailleurs) */}
+      {/* ✅ V2 PREMIUM MOTION + FIX BACKGROUND (1 fichier) */}
       <style jsx global>{`
-        /* ===== V2 Premium (LinkedIn-like) ===== */
+        /* ===========================
+           ✅ Background FIX (no bi-tone)
+        ============================ */
+        html,
+        body {
+          height: 100%;
+          background: #f5f8ff !important;
+        }
+        body {
+          margin: 0;
+          color-scheme: light;
+        }
 
+        /* ✅ IMPORTANT : ton JSX utilise encore des classes "dark".
+           On les mappe en thème CLAIR LinkedIn, sinon les inputs/panels deviennent invisibles. */
+        .page--dark,
+        .hero--dark,
+        .section--dark,
+        .nav--dark {
+          background: transparent !important;
+        }
+
+        /* ✅ rendre le panneau + inputs toujours lisibles */
+        .panel--dark {
+          background: rgba(255, 255, 255, 1) !important;
+          border: 1px solid rgba(0, 0, 0, 0.1) !important;
+          color: rgba(0, 0, 0, 0.88) !important;
+        }
+        .panel__left--dark,
+        .panel__right--dark {
+          background: transparent !important;
+          color: rgba(0, 0, 0, 0.88) !important;
+        }
+
+        .input--dark {
+          background: rgba(255, 255, 255, 1) !important;
+          color: rgba(0, 0, 0, 0.88) !important;
+          border: 1px solid rgba(0, 0, 0, 0.14) !important;
+        }
+        .input--dark::placeholder {
+          color: rgba(0, 0, 0, 0.42) !important;
+        }
+
+        .empty--dark {
+          background: rgba(255, 255, 255, 1) !important;
+          border: 1px dashed rgba(0, 0, 0, 0.18) !important;
+          color: rgba(0, 0, 0, 0.88) !important;
+        }
+        .alert--dark {
+          background: rgba(220, 38, 38, 0.08) !important;
+          border: 1px solid rgba(220, 38, 38, 0.2) !important;
+          color: rgba(0, 0, 0, 0.88) !important;
+        }
+
+        .result--dark {
+          background: rgba(255, 255, 255, 1) !important;
+          border: 1px solid rgba(0, 0, 0, 0.1) !important;
+          color: rgba(0, 0, 0, 0.88) !important;
+        }
+        .result__top--dark {
+          background: rgba(255, 255, 255, 0.92) !important;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .swBlock--dark {
+          background: rgba(255, 255, 255, 1) !important;
+          border: 1px solid rgba(0, 0, 0, 0.1) !important;
+          color: rgba(0, 0, 0, 0.88) !important;
+        }
+        .swBlock__head--dark {
+          background: rgba(255, 255, 255, 0.92) !important;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+        .swBlock__help--dark {
+          color: rgba(0, 0, 0, 0.52) !important;
+        }
+        .swCount--dark {
+          background: rgba(0, 0, 0, 0.04) !important;
+          border: 1px solid rgba(0, 0, 0, 0.12) !important;
+          color: rgba(0, 0, 0, 0.84) !important;
+        }
+
+        .swEditor--dark {
+          background: transparent !important;
+          color: rgba(0, 0, 0, 0.88) !important;
+        }
+        .swEditor--dark::placeholder {
+          color: rgba(0, 0, 0, 0.42) !important;
+        }
+
+        .swChecks--dark .swCheck--dark {
+          background: rgba(255, 255, 255, 1) !important;
+          border: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+        .swWarnings--dark {
+          background: rgba(245, 158, 11, 0.12) !important;
+          border: 1px solid rgba(245, 158, 11, 0.26) !important;
+        }
+
+        /* ===========================
+           ✅ Premium motion (LinkedIn-like)
+        ============================ */
         .swReduceMotion * {
           animation: none !important;
           transition: none !important;
           scroll-behavior: auto !important;
         }
 
-        /* Smooth press / hover */
         .swMotion {
           transition: transform 260ms ease, box-shadow 260ms ease, opacity 260ms ease, filter 260ms ease;
           will-change: transform;
@@ -759,7 +855,6 @@ export default function Page() {
           transform: translateY(0px) scale(0.99);
         }
 
-        /* Reveal on scroll */
         .swReveal {
           opacity: 0;
           transform: translateY(10px);
@@ -770,22 +865,25 @@ export default function Page() {
           transition: opacity 520ms ease, transform 520ms cubic-bezier(0.2, 0.7, 0.2, 1);
         }
 
-        /* Premium subtle background */
+        /* ===========================
+           ✅ Backdrop bleu (plus clean)
+        ============================ */
         .swBackdrop {
           position: fixed;
           inset: 0;
           pointer-events: none;
           z-index: 0;
-          opacity: 0.9;
+          opacity: 1;
         }
         .swBackdrop::before {
           content: "";
           position: absolute;
-          inset: -40px;
+          inset: -60px;
           background:
-            radial-gradient(800px 420px at 15% 10%, rgba(98, 84, 255, 0.16), transparent 55%),
-            radial-gradient(720px 380px at 80% 20%, rgba(0, 198, 255, 0.12), transparent 55%),
-            radial-gradient(720px 420px at 55% 85%, rgba(120, 255, 180, 0.08), transparent 60%);
+            radial-gradient(820px 420px at 16% 8%, rgba(10, 102, 194, 0.22), transparent 58%),
+            radial-gradient(780px 420px at 84% 14%, rgba(0, 198, 255, 0.14), transparent 58%),
+            radial-gradient(920px 520px at 52% 92%, rgba(10, 102, 194, 0.1), transparent 60%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 248, 255, 0.92));
           filter: blur(10px);
           animation: swGlowMove 9.5s ease-in-out infinite alternate;
         }
@@ -793,14 +891,14 @@ export default function Page() {
           content: "";
           position: absolute;
           inset: 0;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.12'/%3E%3C/svg%3E");
-          opacity: 0.22;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.14'/%3E%3C/svg%3E");
+          opacity: 0.24;
           mix-blend-mode: overlay;
         }
         @keyframes swGlowMove {
           0% {
             transform: translate3d(0, 0, 0) scale(1);
-            opacity: 0.9;
+            opacity: 0.95;
           }
           100% {
             transform: translate3d(0, -18px, 0) scale(1.03);
@@ -808,7 +906,9 @@ export default function Page() {
           }
         }
 
-        /* Nav polish */
+        /* ===========================
+           ✅ NAV polish
+        ============================ */
         .nav--dark {
           position: sticky;
           top: 0;
@@ -823,16 +923,10 @@ export default function Page() {
           right: 0;
           bottom: 0;
           height: 1px;
-          background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255, 255, 255, 0.12),
-            transparent
-          );
-          opacity: 0.9;
+          background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.1), transparent);
+          opacity: 0.95;
         }
 
-        /* Mobile menu smooth */
         .nav__mobile {
           animation: swMenuIn 220ms ease;
           transform-origin: top center;
@@ -848,15 +942,59 @@ export default function Page() {
           }
         }
 
-        /* Buttons */
-        .btn {
-          transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease, filter 180ms ease;
+        /* ===========================
+           ✅ HERO spacing + preview moins dominant
+        ============================ */
+        .hero--dark {
+          padding: 26px 0 18px !important;
         }
-        .btn:hover {
-          transform: translateY(-1px);
+        .hero__grid--ref {
+          align-items: start !important;
         }
-        .btn:active {
-          transform: translateY(0px) scale(0.99);
+        @media (min-width: 980px) {
+          .hero__grid--ref {
+            gap: 22px !important;
+          }
+        }
+        /* on réduit un peu l’empreinte du bloc preview */
+        .heroPreviewFrame {
+          max-height: 520px;
+          overflow: hidden;
+        }
+
+        /* ===========================
+           ✅ Pills
+        ============================ */
+        .swHeroPills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-top: 12px;
+        }
+        .swHeroPill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.72);
+          border: 1px solid rgba(15, 23, 42, 0.1);
+          box-shadow: 0 10px 24px rgba(2, 6, 23, 0.06);
+          font-size: 12px;
+          font-weight: 850;
+          color: rgba(15, 23, 42, 0.76);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+        }
+        .swHeroPill b {
+          color: rgba(2, 6, 23, 0.92);
+        }
+        .swHeroPillDot {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          background: rgba(10, 102, 194, 0.85);
+          box-shadow: 0 0 0 6px rgba(10, 102, 194, 0.12);
         }
 
         /* Progress bar animate */
@@ -864,18 +1002,17 @@ export default function Page() {
           height: 10px;
           border-radius: 999px;
           overflow: hidden;
-          background: rgba(255, 255, 255, 0.06);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+          background: rgba(0, 0, 0, 0.04);
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
         }
         .swBar__fill {
           height: 100%;
           width: var(--swP, 25%);
           border-radius: 999px;
-          background: linear-gradient(90deg, rgba(98, 84, 255, 0.9), rgba(0, 198, 255, 0.75));
+          background: linear-gradient(90deg, rgba(10, 102, 194, 0.95), rgba(0, 198, 255, 0.75));
           transition: width 520ms cubic-bezier(0.2, 0.7, 0.2, 1);
         }
 
-        /* Editor panel subtle lift */
         .panel--tool {
           position: relative;
           z-index: 1;
@@ -889,10 +1026,14 @@ export default function Page() {
           transform: translateY(0px);
         }
 
-        /* Result overlay soften */
         .swLoadingOverlay {
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
+        }
+
+        /* ✅ important: quand tu cliques #generator, éviter que la nav sticky masque le panel */
+        #generator {
+          scroll-margin-top: 92px;
         }
       `}</style>
 
@@ -1030,6 +1171,21 @@ export default function Page() {
                     hint="Restant aujourd’hui"
                   />
                 </div>
+
+                <div className="swHeroPills swMotion" data-reveal>
+                  <span className="swHeroPill">
+                    <span className="swHeroPillDot" aria-hidden="true" />
+                    Hook <b>150–180</b>
+                  </span>
+                  <span className="swHeroPill">
+                    <span className="swHeroPillDot" aria-hidden="true" />
+                    <b>3–5</b> hashtags niche
+                  </span>
+                  <span className="swHeroPill">
+                    <span className="swHeroPillDot" aria-hidden="true" />
+                    Finir par <b>?</b>
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1127,7 +1283,7 @@ export default function Page() {
                     rows={4}
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Ex: Pourquoi on doit booster notre productivité ?"
+                    placeholder="Ex: L'importance de se focaliser sur votre bien être"
                   />
                 </div>
 
@@ -1269,34 +1425,13 @@ export default function Page() {
                           }}
                         >
                           {audit && badge && (
-                            <span
-                              className={["scorePill", `scorePill--${badge.tone}`].join(" ")}
-                              style={{
-                                padding: "7px 10px",
-                                fontSize: 13,
-                                lineHeight: 1,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
+                            <span className={["scorePill", `scorePill--${badge.tone}`].join(" ")}>
                               {badge.label} • {audit.score}/100
                             </span>
                           )}
 
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 10,
-                              flexWrap: "wrap",
-                              justifyContent: "flex-end",
-                              alignItems: "center",
-                            }}
-                          >
-                            <button
-                              className="btn btn--ghost swPress"
-                              onClick={copyAll}
-                              disabled={loading || proBlocked}
-                              title="Copier tout"
-                            >
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            <button className="btn btn--ghost swPress" onClick={copyAll} disabled={loading || proBlocked}>
                               Copier tout
                             </button>
                           </div>
@@ -1341,12 +1476,7 @@ export default function Page() {
                             <div className="swBlock__meta">
                               <span className="swCount swCount--dark">{(result.caption ?? "").length}</span>
 
-                              <button
-                                className="btn btn--ghost swPress"
-                                type="button"
-                                onClick={() => copyCaption()}
-                                disabled={loading || proBlocked}
-                              >
+                              <button className="btn btn--ghost swPress" type="button" onClick={copyCaption} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
@@ -1371,20 +1501,13 @@ export default function Page() {
                             <div className="swBlock__meta">
                               <span className="swCount swCount--dark">{(result.cta ?? "").length}</span>
 
-                              <button
-                                className="btn btn--ghost swPress"
-                                type="button"
-                                onClick={() => copyCTA()}
-                                disabled={loading || proBlocked}
-                              >
+                              <button className="btn btn--ghost swPress" type="button" onClick={copyCTA} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
                           </div>
 
-                          <div className="swBlock__help swBlock__help--dark">
-                            Question ouverte • relance commentaires (&gt; 10 mots)
-                          </div>
+                          <div className="swBlock__help swBlock__help--dark">Question ouverte • relance commentaires (&gt; 10 mots)</div>
 
                           <textarea
                             className="swEditor swEditor--cta swEditor--dark swMotion"
@@ -1403,20 +1526,13 @@ export default function Page() {
                             <div className="swBlock__meta">
                               <span className="swCount swCount--dark">{(result.hashtags ?? "").length}</span>
 
-                              <button
-                                className="btn btn--ghost swPress"
-                                type="button"
-                                onClick={() => copyHashtags()}
-                                disabled={loading || proBlocked}
-                              >
+                              <button className="btn btn--ghost swPress" type="button" onClick={copyHashtags} disabled={loading || proBlocked}>
                                 Copier
                               </button>
                             </div>
                           </div>
 
-                          <div className="swBlock__help swBlock__help--dark">
-                            3–5 hashtags • niche • auto-ajout de # si oublié
-                          </div>
+                          <div className="swBlock__help swBlock__help--dark">3–5 hashtags • niche • auto-ajout de # si oublié</div>
 
                           <textarea
                             className="swEditor swEditor--hashtags swEditor--dark swMotion"
@@ -1427,9 +1543,7 @@ export default function Page() {
                               setResult((prev) => (prev ? { ...prev, hashtags: normalized } : prev));
                             }}
                             onBlur={() => {
-                              setResult((prev) =>
-                                prev ? { ...prev, hashtags: normalizeHashtagsInput(prev.hashtags) } : prev
-                              );
+                              setResult((prev) => (prev ? { ...prev, hashtags: normalizeHashtagsInput(prev.hashtags) } : prev));
                             }}
                             placeholder="tag1 tag2 tag3 (ou #tag1 #tag2 #tag3)"
                             style={{ minHeight: 90 }}
@@ -1450,15 +1564,7 @@ export default function Page() {
                             </div>
 
                             <div className="swChecks swChecks--dark">
-                              <div
-                                className={[
-                                  "swCheck",
-                                  "swCheck--dark",
-                                  audit.checks.hookLength ? "swCheck--ok" : "swCheck--bad",
-                                ]
-                                  .join(" ")
-                                  .trim()}
-                              >
+                              <div className={["swCheck", "swCheck--dark", audit.checks.hookLength ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                                 <div className="swCheck__icon">{audit.checks.hookLength ? "✓" : "✗"}</div>
                                 <div className="swCheck__text">
                                   <div className="swCheck__label">Hook 150–180 caractères</div>
@@ -1468,15 +1574,7 @@ export default function Page() {
                                 </div>
                               </div>
 
-                              <div
-                                className={[
-                                  "swCheck",
-                                  "swCheck--dark",
-                                  audit.checks.singleIdea ? "swCheck--ok" : "swCheck--bad",
-                                ]
-                                  .join(" ")
-                                  .trim()}
-                              >
+                              <div className={["swCheck", "swCheck--dark", audit.checks.singleIdea ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                                 <div className="swCheck__icon">{audit.checks.singleIdea ? "✓" : "✗"}</div>
                                 <div className="swCheck__text">
                                   <div className="swCheck__label">1 seule idée (angle clair)</div>
@@ -1486,15 +1584,7 @@ export default function Page() {
                                 </div>
                               </div>
 
-                              <div
-                                className={[
-                                  "swCheck",
-                                  "swCheck--dark",
-                                  audit.checks.openQuestion ? "swCheck--ok" : "swCheck--bad",
-                                ]
-                                  .join(" ")
-                                  .trim()}
-                              >
+                              <div className={["swCheck", "swCheck--dark", audit.checks.openQuestion ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                                 <div className="swCheck__icon">{audit.checks.openQuestion ? "✓" : "✗"}</div>
                                 <div className="swCheck__text">
                                   <div className="swCheck__label">Question ouverte en fin de post</div>
@@ -1502,15 +1592,7 @@ export default function Page() {
                                 </div>
                               </div>
 
-                              <div
-                                className={[
-                                  "swCheck",
-                                  "swCheck--dark",
-                                  audit.checks.hashtagCount ? "swCheck--ok" : "swCheck--bad",
-                                ]
-                                  .join(" ")
-                                  .trim()}
-                              >
+                              <div className={["swCheck", "swCheck--dark", audit.checks.hashtagCount ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                                 <div className="swCheck__icon">{audit.checks.hashtagCount ? "✓" : "✗"}</div>
                                 <div className="swCheck__text">
                                   <div className="swCheck__label">3–5 hashtags</div>
@@ -1520,15 +1602,7 @@ export default function Page() {
                                 </div>
                               </div>
 
-                              <div
-                                className={[
-                                  "swCheck",
-                                  "swCheck--dark",
-                                  audit.checks.mobileReadable ? "swCheck--ok" : "swCheck--bad",
-                                ]
-                                  .join(" ")
-                                  .trim()}
-                              >
+                              <div className={["swCheck", "swCheck--dark", audit.checks.mobileReadable ? "swCheck--ok" : "swCheck--bad"].join(" ").trim()}>
                                 <div className="swCheck__icon">{audit.checks.mobileReadable ? "✓" : "✗"}</div>
                                 <div className="swCheck__text">
                                   <div className="swCheck__label">Lisibilité mobile (paragraphes courts)</div>

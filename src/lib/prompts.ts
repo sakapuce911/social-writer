@@ -1,28 +1,35 @@
 // src/lib/prompts.ts
 
-export type Objective = "vendre" | "attirer" | "éduquer" | "recruter" | "inspirer";
+export type Objective = "éduquer" | "inspirer" | "sarcasme";
+export type Gender = "masculin" | "feminin";
 export type Network = "linkedin";
 
 export const captionPrompt = (args: {
   subject: string;
   language: string; // "French" | "English"
   objective: Objective;
+  gender: Gender;
   network: Network;
 }) => {
-  const { subject, language, objective } = args;
+  const { subject, language, objective, gender } = args;
 
   const objectiveStyle: Record<Objective, string> = {
-    vendre:
-      "STYLE VENDRE: bénéfices concrets, preuve, réassurance, différenciation claire, objection handling doux. Ton direct, orienté décision. Pas agressif.",
-    attirer:
-      "STYLE ATTIRER: conversation early, opinion claire, tension cognitive, contre-intuitif, exemple réel. Phrases courtes. Ton humain, pas coach.",
     éduquer:
       "STYLE ÉDUQUER: mini-framework pédagogique 3–5 points, étapes actionnables, erreurs fréquentes + correctifs. Très sauvegardable.",
-    recruter:
-      "STYLE RECRUTER: critères, signaux, attentes, erreurs de recrutement, exemples terrain. Ton pro, précis, humain, inclusif.",
     inspirer:
       "STYLE INSPIRER: vécu court + déclic + action concrète + leçon spécifique. " +
       "Autorisé: 'soyons honnêtes' si pertinent. Zéro motivation creuse, zéro phrases génériques.",
+    sarcasme:
+      "STYLE SARCASME: sarcasme subtil, humain, intelligent. Jamais méchant, jamais agressif. " +
+      "Pas d’insultes, pas d’attaque personnelle, pas de jugement sur des groupes. " +
+      "Ironie légère, punchlines sobres, ton naturel (comme une vraie personne).",
+  };
+
+  const genderStyle: Record<Gender, string> = {
+    masculin:
+      "GENRE: masculin. Le narrateur s'exprime au masculin (accords au masculin si nécessaire).",
+    feminin:
+      "GENRE: féminin. Le narrateur s'exprime au féminin (accords au féminin si nécessaire).",
   };
 
   return `
@@ -32,6 +39,7 @@ LANGUE: ${language}
 SUJET: """${subject}"""
 OBJECTIF: ${objective}
 ${objectiveStyle[objective]}
+${genderStyle[gender]}
 
 RÈGLES LINKEDIN (OBLIGATOIRES)
 - Tout doit être généré par l’IA (aucun contenu pré-écrit, pas de CTA imposée depuis le code).

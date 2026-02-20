@@ -31,16 +31,35 @@ function getEnvList(name: string): string[] {
     .filter(Boolean);
 }
 
+function envNumber(name: string): number | null {
+  const raw = (process.env[name] ?? "").trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 function extractTextFromGemini(data: any): string {
+  // ✅ Réponse classique : candidates[0].content.parts[].text
   const parts = data?.candidates?.[0]?.content?.parts;
   if (Array.isArray(parts)) {
-    const t = parts.map((p: any) => p?.text).filter(Boolean).join("\n").trim();
+    const t = parts
+      .map((p: any) => (typeof p?.text === "string" ? p.text : ""))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
     if (t) return t;
   }
+
+  // ✅ fallback possibles (selon versions/outils)
   const t2 = data?.candidates?.[0]?.output;
   if (typeof t2 === "string" && t2.trim()) return t2.trim();
+
   const t3 = data?.text;
   if (typeof t3 === "string" && t3.trim()) return t3.trim();
+
+  const t4 = data?.candidates?.[0]?.content?.text;
+  if (typeof t4 === "string" && t4.trim()) return t4.trim();
+
   return "";
 }
 
@@ -80,8 +99,8 @@ function pickStartIndex(keys: string[], prompt: string) {
 }
 
 function envTimeoutMs() {
-  const v = Number(process.env.LLM_TIMEOUT_MS ?? "");
-  return Number.isFinite(v) && v > 0 ? v : null;
+  const v = envNumber("LLM_TIMEOUT_MS");
+  return v && v > 0 ? v : null;
 }
 
 function devLog(...args: any[]) {
@@ -95,8 +114,6 @@ function devLog(...args: any[]) {
  * ✅ fetch "anti-blocage" :
  * - AbortController
  * - + Promise.race hard-timeout
- *
- * FIX: pas de référence à timeoutPromise avant initialisation
  */
 async function fetchWithHardTimeout(url: string, init: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
@@ -136,7 +153,9 @@ function buildModelsList(): string[] {
 }
 
 export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<CallResult> {
-  const baseUrl = normalizeBaseUrl(process.env.LLM_BASE_URL ?? "https://generativelanguage.googleapis.com/v1beta");
+  const baseUrl = normalizeBaseUrl(
+    process.env.LLM_BASE_URL ?? "https://generativelanguage.googleapis.com/v1beta"
+  );
 
   const keys =
     getEnvList("LLM_API_KEYS").length > 0
@@ -151,22 +170,37 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
 
   const models = buildModelsList();
 
-  const temperature = typeof opts.temperature === "number" ? opts.temperature : 0.6;
-  const maxOutputTokens = typeof opts.maxOutputTokens === "number" ? opts.maxOutputTokens : 900;
+  // ✅ Defaults pilotables par env (utile si réponses trop courtes)
+  const envTemp = envNumber("LLM_TEMPERATURE");
+  const envMaxOut = envNumber("LLM_MAX_OUTPUT_TOKENS");
+
+  const temperature =
+    typeof opts.temperature === "number"
+      ? opts.temperature
+      : typeof envTemp === "number"
+        ? envTemp
+        : 0.6;
+
+  // 🔥 Par défaut on monte un peu pour LinkedIn (évite “trop court”)
+  const maxOutputTokens =
+    typeof opts.maxOutputTokens === "number"
+      ? opts.maxOutputTokens
+      : typeof envMaxOut === "number" && envMaxOut > 0
+        ? envMaxOut
+        : 1600;
 
   const timeoutMs =
-    typeof opts.timeoutMs === "number" && opts.timeoutMs > 0
-      ? opts.timeoutMs
-      : envTimeoutMs() ?? 15000;
+    typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : envTimeoutMs() ?? 15000;
 
-  const responseMimeType =
-    opts.forceJson ? "application/json" : (opts.responseMimeType ?? "text/plain");
+  const responseMimeType = opts.forceJson
+    ? "application/json"
+    : (opts.responseMimeType ?? "text/plain");
 
   const start = pickStartIndex(keys, prompt);
 
   // ✅ Politique "quota gratuit" :
   // - on essaye clé -> modèle, sans boucle infinie
-  // - si quota, on passe à la clé suivante
+  // - si quota/auth, on passe à la clé suivante
   let lastErr: { status?: number; message: string } | null = null;
 
   for (let ki = 0; ki < keys.length; ki++) {
@@ -180,7 +214,7 @@ export async function callLLM(prompt: string, opts: CallOpts = {}): Promise<Call
       let data: any = null;
 
       try {
-        devLog(`call model=${model} keyIndex=${keyIndex} timeoutMs=${timeoutMs}`);
+        devLog(`call model=${model} keyIndex=${keyIndex} timeoutMs=${timeoutMs} maxOut=${maxOutputTokens}`);
 
         resp = await fetchWithHardTimeout(
           url,

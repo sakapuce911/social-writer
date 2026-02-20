@@ -1,7 +1,7 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import { callLLM } from "@/lib/provider";
-import { captionPrompt, type Objective } from "@/lib/prompts";
+import { captionPrompt, type Objective, type Gender } from "@/lib/prompts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,12 +16,23 @@ function safeLang(input: unknown): Lang {
 
 function safeObjective(input: unknown): Objective {
   const v = String(input ?? "").trim().toLowerCase();
-  if (v === "vendre") return "vendre";
-  if (v === "attirer") return "attirer";
-  if (v === "recruter") return "recruter";
+
+  // ✅ nouveaux
   if (v === "inspirer") return "inspirer";
-  if (v === "éduquer" || v === "eduquer") return "éduquer";
-  return "attirer";
+  if (v === "sarcasme" || v === "sarcastique" || v === "sarcasm") return "sarcasme";
+  if (v === "éduquer" || v === "eduquer" || v === "educate") return "éduquer";
+
+  // ✅ compat anciens (au cas où un vieux front envoie encore ça)
+  if (v === "vendre" || v === "attirer" || v === "recruter") return "inspirer";
+
+  return "inspirer";
+}
+
+function safeGender(input: unknown): Gender {
+  const v = String(input ?? "").trim().toLowerCase();
+  if (v === "feminin" || v === "féminin" || v === "female" || v === "f") return "feminin";
+  if (v === "masculin" || v === "male" || v === "m") return "masculin";
+  return "masculin";
 }
 
 function stripCodeFences(s: string) {
@@ -160,14 +171,12 @@ function captionLenOk(caption: string) {
 
 function ctaOk(cta: string) {
   const t = (cta ?? "").trim();
-  // ✅ CTA doit être une question (pas une phrase)
   return t.endsWith("?") && t.length >= 20;
 }
 
 function endsWithQuestion(caption: string, cta: string) {
   const cap = (caption ?? "").trim();
   const cc = (cta ?? "").trim();
-  // ✅ caption doit finir par ? (ou CTA, mais au moins un des deux)
   return cap.endsWith("?") || cc.endsWith("?");
 }
 
@@ -239,19 +248,18 @@ Texte à réparer:
   return coerceOutput(String(r.text ?? ""));
 }
 
-/** REWRITE HOOK ONLY */
 /** REWRITE HOOK ONLY (avec retry IA jusqu'à hook strict 150–180) */
 async function rewriteHookOnly(args: {
   subject: string;
   language: Lang;
   objective: Objective;
+  gender: Gender;
   current: { caption: string; cta: string; hashtags: string };
 }) {
-  const { subject, language, objective, current } = args;
+  const { subject, language, objective, gender, current } = args;
   const oldCaption = current.caption ?? "";
   const oldHook = getHook(oldCaption);
 
-  // ✅ 3 tentatives max (hook uniquement) = petit coût quota
   for (let attempt = 0; attempt < 3; attempt++) {
     const prompt = `
 Tu dois UNIQUEMENT réécrire le HOOK (1ère ligne) d’un post LinkedIn.
@@ -259,6 +267,7 @@ Tu réponds UNIQUEMENT en JSON strict.
 
 Langue: ${language}
 Objectif: ${objective}
+Genre du narrateur: ${gender}
 Sujet: ${subject}
 
 Hook actuel:
@@ -271,18 +280,14 @@ Contraintes HOOK (NON NÉGOCIABLES):
 - 1 seule ligne (aucun saut de ligne)
 - naturel, conversation early, pas marketing
 - Interdiction d'inventer des stats (% / "70%" / "80%"). Si tu mets un chiffre: préfère "3" / "5" / "1".
-- Le hook doit se terminer par "?" (recommandé pour déclencher la lecture)
-
-IMPORTANT:
-- Compte les caractères avant de répondre. Si tu dépasses 180, réécris.
-- Si tu es sous 150, rallonge sans ajouter de chiffres inventés.
+- Le hook doit se terminer par "?" (recommandé)
 
 Sortie JSON:
 {"hook":"..."}
 `.trim();
 
     const r = await callLLM(prompt, {
-      temperature: attempt === 0 ? 0.2 : 0.1, // plus strict en retry
+      temperature: attempt === 0 ? 0.2 : 0.1,
       maxOutputTokens: 500,
       timeoutMs: 30000,
       forceJson: true,
@@ -302,15 +307,15 @@ Sortie JSON:
   return null;
 }
 
-
 /** EXTEND CAPTION : 900–1300, hook inchangé + caption finit par ? */
 async function extendCaption(args: {
   subject: string;
   language: Lang;
   objective: Objective;
+  gender: Gender;
   current: { caption: string; cta: string; hashtags: string };
 }) {
-  const { subject, language, objective, current } = args;
+  const { subject, language, objective, gender, current } = args;
   const hook = getHook(current.caption ?? "");
 
   const prompt = `
@@ -319,6 +324,7 @@ Tu dois garder EXACTEMENT le même hook (1ère ligne) inchangé.
 
 Langue: ${language}
 Objectif: ${objective}
+Genre du narrateur: ${gender}
 Sujet: ${subject}
 
 Post actuel (JSON):
@@ -353,9 +359,10 @@ async function injectList(args: {
   subject: string;
   language: Lang;
   objective: Objective;
+  gender: Gender;
   current: { caption: string; cta: string; hashtags: string };
 }) {
-  const { subject, language, objective, current } = args;
+  const { subject, language, objective, gender, current } = args;
 
   const prompt = `
 Tu dois AJOUTER une liste (3 à 5 points max) dans la caption.
@@ -364,6 +371,7 @@ Tu dois garder une fin de caption en question "?" (obligatoire).
 
 Langue: ${language}
 Objectif: ${objective}
+Genre du narrateur: ${gender}
 Sujet: ${subject}
 
 Post actuel (JSON):
@@ -397,9 +405,10 @@ async function forceCaptionEndsWithQuestion(args: {
   subject: string;
   language: Lang;
   objective: Objective;
+  gender: Gender;
   current: { caption: string; cta: string; hashtags: string };
 }) {
-  const { subject, language, objective, current } = args;
+  const { subject, language, objective, gender, current } = args;
 
   const prompt = `
 Tu dois corriger UNIQUEMENT la fin de la caption pour qu'elle se termine par une question ouverte "?".
@@ -407,6 +416,7 @@ Tu gardes le hook (1ère ligne) inchangé et tu conserves le contenu au maximum.
 
 Langue: ${language}
 Objectif: ${objective}
+Genre du narrateur: ${gender}
 Sujet: ${subject}
 
 Post actuel (JSON):
@@ -444,12 +454,15 @@ export async function POST(req: Request) {
 
     const lang = safeLang(body?.language);
     const objective = safeObjective(body?.objective);
+    const gender = safeGender(body?.gender);
     const network: Network = "linkedin";
 
+    // ✅ Prompt unique, centralisé dans prompts.ts
     const prompt = captionPrompt({
       subject,
       language: lang === "en" ? "English" : "French",
       objective,
+      gender,
       network,
     });
 
@@ -473,7 +486,11 @@ export async function POST(req: Request) {
 
     if (!out || !out.caption) {
       return NextResponse.json(
-        { error: "La génération IA n’a pas produit un JSON valide.", code: "bad_output", raw: stripCodeFences(raw1).slice(0, 2000) },
+        {
+          error: "La génération IA n’a pas produit un JSON valide.",
+          code: "bad_output",
+          raw: stripCodeFences(raw1).slice(0, 2000),
+        },
         { status: 502 }
       );
     }
@@ -482,26 +499,26 @@ export async function POST(req: Request) {
     for (let i = 0; i < 4; i++) {
       const hook = getHook(out.caption ?? "");
       if (hookOk(hook)) break;
-      const fixedHook = await rewriteHookOnly({ subject, language: lang, objective, current: out });
+      const fixedHook = await rewriteHookOnly({ subject, language: lang, objective, gender, current: out });
       if (fixedHook && fixedHook.caption) out = fixedHook;
       else break;
     }
 
     for (let i = 0; i < 4; i++) {
       if (captionLenOk(out.caption ?? "")) break;
-      const extended = await extendCaption({ subject, language: lang, objective, current: out });
+      const extended = await extendCaption({ subject, language: lang, objective, gender, current: out });
       if (extended && extended.caption) out = extended;
       else break;
     }
 
     if (!hasList(out.caption ?? "")) {
-      const withList = await injectList({ subject, language: lang, objective, current: out });
+      const withList = await injectList({ subject, language: lang, objective, gender, current: out });
       if (withList && withList.caption) out = withList;
     }
 
     // ✅ Dernière passe: caption doit finir par "?"
     if (!(out.caption ?? "").trim().endsWith("?")) {
-      const fixedEnd = await forceCaptionEndsWithQuestion({ subject, language: lang, objective, current: out });
+      const fixedEnd = await forceCaptionEndsWithQuestion({ subject, language: lang, objective, gender, current: out });
       if (fixedEnd && fixedEnd.caption) out = fixedEnd;
     }
 
@@ -518,7 +535,11 @@ export async function POST(req: Request) {
     const lower = msg.toLowerCase();
 
     const isTimeout = lower.includes("timeout") || lower.includes("aborterror") || lower.includes("504");
-    const isQuota = lower.includes("quota") || lower.includes("resource_exhausted") || lower.includes("rate limit") || lower.includes("429");
+    const isQuota =
+      lower.includes("quota") ||
+      lower.includes("resource_exhausted") ||
+      lower.includes("rate limit") ||
+      lower.includes("429");
 
     if (isTimeout) return NextResponse.json({ error: msg, code: "timeout" }, { status: 504 });
     if (isQuota) return NextResponse.json({ error: msg, code: "quota" }, { status: 429 });
